@@ -1,0 +1,36 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Build artifacts / assembled app bundle
+build/
+DerivedData/
+*.app
+
+# Xcode (in case anyone opens the package in Xcode)
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Signing / secrets — never commit local certs or keys
+*.p12
+*.pem
+*.cer
+*.certSigningRequest
+*.mobileprovision
+*.provisionprofile
+
+# Editor / tooling
+.idea/
+*.swp
+.vscode/
