@@ -20,11 +20,13 @@ Hold a modifier while dragging a window to overlay a zone layout on your screen,
 
 ## Demo
 
-<!-- TODO: drop a screen recording or screenshot here, e.g.:
-![Zones in action](docs/demo.gif)
--->
+<div align="center">
 
-_A short demo GIF goes here — hold ⇧ Shift, drag a window, watch the zones light up._
+![Zones in action — hold ⇧ Shift, drag a window, and snap it into a zone](docs/demo.gif)
+
+</div>
+
+_Hold ⇧ Shift, drag a window, and watch the zones light up — release to snap._
 
 ## Features
 
@@ -103,7 +105,8 @@ Tests/
 └── ZonesCoreTests/
 Scripts/
 ├── bundle.sh              # release build + code-sign → build/Zones.app
-└── create-signing-cert.sh # one-time: create a stable signing identity
+├── create-signing-cert.sh # one-time: create a stable signing identity
+└── make-gif.sh            # convert a screen recording → docs/demo.gif
 ```
 
 ## Roadmap

@@ -30,6 +30,10 @@ Icon?
 *.mobileprovision
 *.provisionprofile
 
+# Demo recordings — keep docs/demo.gif, not the raw screen captures
+*.mov
+*.mp4
+
 # Editor / tooling
 .idea/
 *.swp
