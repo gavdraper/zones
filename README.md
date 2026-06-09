@@ -44,7 +44,11 @@ _A short demo GIF goes here — hold ⇧ Shift, drag a window, watch the zones l
 
 ## Installation
 
-### Option A — Download a release _(easiest)_
+### Option A — Download a release _(coming soon)_
+
+Prebuilt `Zones.app` downloads aren't available yet. For now, [build from source](#option-b--build-from-source).
+
+When releases are published:
 
 1. Grab the latest `Zones.app` from the [**Releases**](../../releases) page.
 2. Move it to your `/Applications` folder.
