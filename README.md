@@ -18,15 +18,6 @@ Hold a modifier while dragging a window to overlay a zone layout on your screen,
 
 ---
 
-## Demo
-
-<div align="center">
-
-![Zones in action — hold ⇧ Shift, drag a window, and snap it into a zone](docs/demo.gif)
-
-</div>
-
-_Hold ⇧ Shift, drag a window, and watch the zones light up — release to snap._
 
 ## Features
 
