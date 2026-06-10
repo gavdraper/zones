@@ -2,9 +2,9 @@
 
 # Zones
 
-**FancyZones-style window snapping for macOS.**
+**Grid-based window snapping for macOS.**
 
-Carve your screen into a custom grid of zones, then snap windows into place by mouse or keyboard — like Windows PowerToys FancyZones, built natively for the Mac. Zones runs as a lightweight menu-bar agent with no Dock icon.
+Carve your screen into a custom grid of zones, then snap windows into place by mouse or keyboard. Zones runs as a lightweight menu-bar agent with no Dock icon.
 
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-blue)](https://www.apple.com/macos/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
