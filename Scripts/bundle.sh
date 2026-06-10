@@ -36,6 +36,16 @@ mkdir -p "$APP/Contents/MacOS"
 mkdir -p "$APP/Contents/Resources"
 cp "$BIN_PATH" "$APP/Contents/MacOS/Zones"
 
+echo "==> Installing app icon"
+# Resources/AppIcon.icns is committed; regenerate it with Scripts/make-icon.sh.
+ICON_SRC="$ROOT/Resources/AppIcon.icns"
+if [[ -f "$ICON_SRC" ]]; then
+    cp "$ICON_SRC" "$APP/Contents/Resources/AppIcon.icns"
+else
+    echo "!! $ICON_SRC missing — run Scripts/make-icon.sh to generate it." >&2
+    exit 1
+fi
+
 echo "==> Embedding Sparkle.framework"
 # Match the universal (arm64 + x86_64) slice explicitly so a single-arch
 # framework can never be embedded by accident.
@@ -69,6 +79,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <string>co.uk.vindraper.zones</string>
     <key>CFBundleExecutable</key>
     <string>Zones</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
