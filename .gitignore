@@ -38,6 +38,9 @@ Icon?
 *.mov
 *.mp4
 
+# Local-only helper scripts (not part of the release toolchain)
+Scripts/download-counts.sh
+
 # Editor / tooling
 .idea/
 *.swp
