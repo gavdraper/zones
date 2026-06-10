@@ -46,8 +46,14 @@ mkdir -p "$(dirname "$APPCAST")"
 ED_KEY_ARGS=()
 [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]] && ED_KEY_ARGS=(--ed-key-file -)
 
+# --maximum-deltas 0 disables binary delta generation. Each release is built and
+# uploaded one full DMG at a time (the CI job only ever has the new version in
+# its archive dir and uploads just Zones-*.dmg), so any delta entry would point
+# at a .delta asset that was never uploaded. The full DMG is ~1.4 MB, so the
+# saving isn't worth the dangling reference.
 printf '%s' "${SPARKLE_PRIVATE_KEY:-}" | "$TOOL" \
     "${ED_KEY_ARGS[@]}" \
+    --maximum-deltas 0 \
     --download-url-prefix "$DOWNLOAD_PREFIX" \
     --link "https://github.com/gavdraper/zones" \
     -o "$APPCAST" \
