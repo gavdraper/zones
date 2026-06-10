@@ -32,17 +32,55 @@ jobs:
       - name: Resolve dependencies
         run: swift build
 
-      # No Developer ID on the runner, so bundle.sh ad-hoc signs the .app (its
-      # built-in fallback) and ZONES_SKIP_NOTARIZE skips the notary submission.
-      # The DMG is unnotarised: users right-click -> Open on first launch, and
-      # Sparkle still trusts updates via the EdDSA signature on the appcast.
+      # Sign every CI build with the SAME self-signed 'Zones Dev' cert used
+      # locally so the app's code-signing identity is stable. macOS keys the
+      # Accessibility (TCC) grant on that identity, so users grant it ONCE and it
+      # survives every auto-update. Ad-hoc signing (bundle.sh's fallback when no
+      # cert is present) changes the cdhash each build and forces a re-grant.
+      - name: Import the Zones Dev signing certificate
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/zones-signing.keychain-db"
+          KEYCHAIN_PW="$(uuidgen)"
+          P12="$RUNNER_TEMP/zones-cert.p12"
+          PEM="$RUNNER_TEMP/zones-cert.pem"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$P12"
+
+          # A dedicated, unlocked keychain just for this build.
+          security create-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+
+          # Import the identity and let codesign use it non-interactively.
+          security import "$P12" -k "$KEYCHAIN" -P "$MACOS_CERT_PASSWORD" \
+            -A -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PW" "$KEYCHAIN" >/dev/null
+
+          # Put our keychain first so `security find-identity` (which bundle.sh
+          # gates on) resolves the identity.
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+
+          # Self-signed cert: trust it for code signing so it counts as a *valid*
+          # codesigning identity. Runner sudo is passwordless -> non-interactive.
+          security find-certificate -c "Zones Dev" -p "$KEYCHAIN" > "$PEM"
+          sudo security add-trusted-cert -d -r trustRoot -p codeSign \
+            -k /Library/Keychains/System.keychain "$PEM"
+
+          rm -f "$P12" "$PEM"
+          echo "Signing identities available:"
+          security find-identity -v -p codesigning
+
+      # release.sh auto-selects the imported 'Zones Dev' identity (no Developer ID
+      # present -> its built-in fallback) and signs with the hardened runtime.
+      # ZONES_SKIP_NOTARIZE skips notarisation; the DMG is unnotarised, so users
+      # right-click -> Open on first install only. Sparkle trusts updates via the
+      # EdDSA appcast signature, and the stable identity keeps the TCC grant.
       # --- To switch on notarisation once enrolled in the Apple Developer Program:
-      #   1. Add secrets: DEVELOPER_ID_P12 (base64 .p12), P12_PASSWORD,
-      #      APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD.
-      #   2. Add a step to import DEVELOPER_ID_P12 into a temp keychain and
-      #      export ZONES_RELEASE_IDENTITY for the build step below.
-      #   3. Add a step running `xcrun notarytool store-credentials ZonesNotary ...`.
-      #   4. Remove the ZONES_SKIP_NOTARIZE env var. release.sh handles the rest.
+      #   swap MACOS_CERT_* for a Developer ID cert, add notarytool credentials,
+      #   and drop ZONES_SKIP_NOTARIZE. release.sh handles the rest.
       - name: Build + sign DMG (unnotarised)
         env:
           ZONES_SKIP_NOTARIZE: "1"
