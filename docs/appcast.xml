@@ -7,9 +7,9 @@
             <pubDate>Wed, 10 Jun 2026 05:26:01 +0100</pubDate>
             <link>https://github.com/gavdraper/zones</link>
             <sparkle:version>2</sparkle:version>
-            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+            <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/gavdraper/zones/releases/download/downloads/Zones-0.1.1.dmg" length="1239759" type="application/octet-stream" sparkle:edSignature="KbFmJkPnrZZgsoCfRMeu39dGVYdKqDW2jTsgnsF0nS7RUlR1fU9oRFsAN84GA4B25HyKHP1o2Dbi3NdjDAWsBw=="/>
+            <enclosure url="https://github.com/gavdraper/zones/releases/download/downloads/Zones-0.1.2.dmg" length="1237066" type="application/octet-stream" sparkle:edSignature="TDv4vGFSIRlFmBxaAjQz/lacw55WxeyKN6loatQVCdjOfVKQ9mdc7k7w6xXYTnkDVWlI2LgDnJXRaTZl4aK9BQ=="/>
         </item>
     </channel>
 </rss>
