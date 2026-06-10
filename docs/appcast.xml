@@ -3,6 +3,15 @@
     <channel>
         <title>Zones</title>
         <item>
+            <title>0.2.0</title>
+            <pubDate>Wed, 10 Jun 2026 04:45:10 +0000</pubDate>
+            <link>https://github.com/gavdraper/zones</link>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/gavdraper/zones/releases/download/downloads/Zones-0.2.0.dmg" length="1237066" type="application/octet-stream" sparkle:edSignature="RYl6POL10Johg3SHxNXj8W1cRGxJRYgLjyjr3lfSx7lZAsxDVg/69Ah+IPETQzIL8cmDbMUtCt+G9mLldJDqAA=="/>
+        </item>
+        <item>
             <title>0.1.1</title>
             <pubDate>Wed, 10 Jun 2026 05:26:01 +0100</pubDate>
             <link>https://github.com/gavdraper/zones</link>
