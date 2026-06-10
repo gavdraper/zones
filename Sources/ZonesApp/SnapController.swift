@@ -5,7 +5,7 @@ import ZonesCore
 /// cursor, hit-tests the active layout, drives the overlay, and on release
 /// resizes the focused window into the chosen zone.
 @MainActor
-final class SnapController: DragMonitorDelegate {
+final class SnapController: DragMonitorDelegate, KeyboardMonitorDelegate {
     private let overlay: OverlayWindowController
 
     /// The layout currently offered for snapping. Swappable from the menu bar.
@@ -48,6 +48,50 @@ final class SnapController: DragMonitorDelegate {
         let frame = ZoneGeometry.frame(for: zone, in: bounds)
         Log.snap.info("Snapping to zone \(zone.id) frame=\(frame.debugDescription, privacy: .public)")
         window.setFrame(frame)
+    }
+
+    // MARK: - KeyboardMonitorDelegate
+
+    func keyboardMonitor(_ monitor: KeyboardMonitor, didRequestMoveIn direction: ZoneNavigator.Direction) {
+        moveFocusedWindow(direction)
+    }
+
+    /// Releasing the hotkey modifiers ends the gesture, so the zone overlay that
+    /// has been shown since the first move is torn down.
+    func keyboardMonitorDidDisengage(_ monitor: KeyboardMonitor) {
+        overlay.hide()
+    }
+
+    /// Steps the focused window to the zone neighbouring its current one in
+    /// `direction` and highlights the target. The overlay stays up until the
+    /// modifiers are released (see ``keyboardMonitorDidDisengage(_:)``) so repeated
+    /// presses can walk the window across zones. A window that occupies no zone is
+    /// pulled into the nearest one; a window already at the layout edge stays put.
+    private func moveFocusedWindow(_ direction: ZoneNavigator.Direction) {
+        guard let window = FocusedWindow.current(), let windowFrame = window.frame() else { return }
+
+        let center = CGPoint(x: windowFrame.midX, y: windowFrame.midY)
+        guard let screen = screen(containing: center) else { return }
+        let bounds = displayBoundsQuartz(for: screen)
+
+        guard let zone = destinationZone(for: windowFrame, direction: direction, in: bounds) else { return }
+
+        let frame = ZoneGeometry.frame(for: zone, in: bounds)
+        Log.snap.info("Keyboard move \(String(describing: direction), privacy: .public) → zone \(zone.id)")
+        window.setFrame(frame)
+        overlay.show(layout: layout, on: screen, displayBoundsQuartz: bounds, activeZoneID: zone.id)
+    }
+
+    private func destinationZone(
+        for windowFrame: CGRect,
+        direction: ZoneNavigator.Direction,
+        in bounds: CGRect
+    ) -> Zone? {
+        guard let current = ZoneNavigator.currentZone(forWindowFrame: windowFrame, layout: layout, displayBounds: bounds) else {
+            // Not in a zone yet — land it in the nearest one.
+            return ZoneNavigator.nearestZone(to: CGPoint(x: windowFrame.midX, y: windowFrame.midY), layout: layout, displayBounds: bounds)
+        }
+        return ZoneNavigator.adjacentZone(from: current, direction: direction, in: layout)
     }
 
     // MARK: - Snap state

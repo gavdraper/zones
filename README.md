@@ -22,6 +22,8 @@ Hold a modifier while dragging a window to overlay a zone layout on your screen,
 ## Features
 
 - 🪟 **Drag-to-snap** — hold ⇧ Shift while dragging any window to reveal zone overlays, then release to snap.
+- ⌨️ **Keyboard moves** — hold **⌃⌥** and tap the arrow keys to walk the focused window between zones; the layout stays highlighted until you let the modifiers go.
+- ✏️ **Visual zone editor** — build your own layouts by splitting cells left/right or top/bottom, dragging the dividers to resize, and merging neighbours back together. Saved layouts appear in the menu and persist across launches.
 - 📐 **Resolution-independent layouts** — zones are stored as fractions of the display, so a layout behaves identically on a laptop panel or a 4K monitor.
 - 🖥️ **Multi-monitor aware** — snapping targets whichever display your cursor is over.
 - 🧭 **Menu-bar agent** — lightweight, no Dock icon; toggle snapping, pick a layout, or quit from the menu bar.
@@ -76,8 +78,13 @@ swift run ZonesApp         # build and launch directly
 ## First run
 
 1. On launch, macOS prompts for **Accessibility** permission — required to observe mouse drags and to move other apps' windows. Grant it in **System Settings → Privacy & Security → Accessibility**, then toggle Zones on.
-2. A split-rectangle icon appears in the **menu bar**. Use it to toggle snapping, choose a layout, or quit.
+2. A split-rectangle icon appears in the **menu bar**. Use it to toggle snapping, choose a layout, create or edit your own via **New Layout…**, or quit.
 3. **Hold ⇧ Shift while dragging a window.** Zone overlays appear, the zone under your cursor highlights, and releasing snaps the window into it.
+4. **Or hold ⌃⌥ and tap the arrow keys** to move the focused window between zones without the mouse. The zone overlay appears with the destination highlighted and stays up while you hold ⌃⌥, so you can keep tapping to walk the window across the layout; release the keys to dismiss it. A window that isn't in a zone yet lands in the nearest one.
+
+### Building a custom layout
+
+Pick **New Layout…** from the menu to open the editor. Click a cell to select it, then split it left/right or top/bottom, drag the dividers to resize, and merge a cell back into its neighbour. Name it and **Save** — it joins the menu and is remembered across launches.
 
 ## How it works
 
@@ -85,8 +92,8 @@ Zones is split into a pure, testable domain layer and a thin AppKit integration 
 
 | Layer | Responsibility |
 |-------|----------------|
-| **`ZonesCore`** | Pure, unit-tested domain with no AppKit dependency: `Zone` / `ZoneLayout` (normalized 0–1 coordinates), `LayoutTemplate` (columns / grid / priority layouts), `ZoneGeometry` (normalized → pixels), and `ZoneHitTester` (point → zone). |
-| **`ZonesApp`** | AppKit menu-bar agent. `DragMonitor` (a `CGEventTap`) detects drags, `SnapController` orchestrates hit-testing and snapping, `OverlayWindowController` draws the zone overlays, `FocusedWindow` resizes the target window via the Accessibility API, and `CoordinateSpace` handles the AppKit ↔ Quartz origin flip. |
+| **`ZonesCore`** | Pure, unit-tested domain with no AppKit dependency: `Zone` / `ZoneLayout` (normalized 0–1 coordinates), `LayoutTemplate` (columns / grid / priority layouts), `ZoneGeometry` (normalized → pixels), `ZoneHitTester` (point → zone), and `ZoneNavigator` (directional zone-to-zone moves for the keyboard). The editor model — `EditableGrid`, a split/merge BSP tree that flattens to `[Zone]` — and persistence (`LayoutStore` / `FileLayoutStore` and the observable `LayoutLibrary`) live here too. |
+| **`ZonesApp`** | AppKit menu-bar agent. `DragMonitor` (a `CGEventTap`) detects drags and `KeyboardMonitor` (another tap) detects the ⌃⌥+arrow hotkey; both feed `SnapController`, which orchestrates hit-testing, snapping, and keyboard moves (via `ZonesCore`'s `ZoneNavigator`). `OverlayWindowController` draws the zone overlays, `FocusedWindow` reads and resizes the target window via the Accessibility API, and `CoordinateSpace` handles the AppKit ↔ Quartz origin flip. The visual editor is `EditorWindowController` + `GridEditorView` + the AppKit-free `GridEditorViewModel`. |
 
 ```
 Sources/
@@ -104,10 +111,11 @@ Scripts/
 
 Current limitations and what's planned next:
 
-- [ ] Configurable snap modifier (currently fixed to ⇧ Shift).
-- [ ] Visual zone editor (built-in layouts only for now).
-- [ ] Keyboard shortcuts to move windows between zones.
-- [ ] Per-app rules and layout persistence.
+- [x] Visual zone editor with persistent custom layouts.
+- [x] Keyboard shortcuts to move windows between zones (⌃⌥ + arrow).
+- [ ] Configurable snap modifier and move hotkey (currently fixed to ⇧ Shift / ⌃⌥).
+- [ ] Arbitrary (non-guillotine) zone merges — the editor currently merges a cell only into a sibling cell.
+- [ ] Per-app rules.
 - [ ] Per-display layouts (multi-monitor currently uses the display under the cursor).
 
 ## Contributing

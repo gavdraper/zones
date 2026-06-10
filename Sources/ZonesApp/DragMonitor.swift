@@ -13,7 +13,7 @@ protocol DragMonitorDelegate: AnyObject {
 /// reports them as begin/move/end gestures, along with whether the snap
 /// modifier is held. It never mutates events (listen-only).
 @MainActor
-final class DragMonitor {
+final class DragMonitor: InputMonitor {
     weak var delegate: DragMonitorDelegate?
 
     /// Modifier that arms snapping while dragging. Defaults to Shift, matching

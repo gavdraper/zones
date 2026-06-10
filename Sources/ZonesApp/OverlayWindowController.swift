@@ -2,7 +2,9 @@ import AppKit
 import ZonesCore
 
 /// Owns the transparent, click-through window that visualises zones during a
-/// drag, and translates zone geometry into the window's local coordinates.
+/// drag or a keyboard move, and translates zone geometry into the window's local
+/// coordinates. It stays visible until ``hide()`` is called — the caller decides
+/// when (drag release, or the move modifiers being let go).
 @MainActor
 final class OverlayWindowController {
     private let window: NSWindow

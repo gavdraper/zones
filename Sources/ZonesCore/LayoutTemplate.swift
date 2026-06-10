@@ -6,6 +6,17 @@ import CoreGraphics
 /// independent of any particular display size.
 public enum LayoutTemplate {
 
+    /// The built-in layouts offered out of the box, in menu order. This is the
+    /// single source of truth for the defaults the app ships with.
+    public static func builtins() -> [ZoneLayout] {
+        [
+            columns(2),
+            columns(3),
+            grid(rows: 2, columns: 2),
+            priorityGrid()
+        ]
+    }
+
     /// `count` equal-width, full-height columns laid out left-to-right.
     public static func columns(_ count: Int) -> ZoneLayout {
         precondition(count > 0, "A column layout needs at least one column")

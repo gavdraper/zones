@@ -1,30 +1,106 @@
 import AppKit
 import ZonesCore
 
-/// Composition root: wires the accessibility check, drag monitor, snap
-/// controller, overlay, and menu bar together once the app finishes launching.
+/// Composition root: loads the layout library, wires the accessibility check,
+/// drag monitor, snap controller, overlay, and menu bar together, and owns the
+/// editor window while it's open.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var overlay: OverlayWindowController?
     private var dragMonitor: DragMonitor?
+    private var keyboardMonitor: KeyboardMonitor?
     private var snapController: SnapController?
     private var menuBar: MenuBarController?
+    private var library: LayoutLibrary?
+    private var editor: EditorWindowController?
+    private var help: HelpWindowController?
+    private var updateController: UpdateController?
     private var trustPoll: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let library = loadLibrary()
         let overlay = OverlayWindowController()
-        let snapController = SnapController(layout: LayoutTemplate.columns(3), overlay: overlay)
+        let snapController = SnapController(layout: library.active, overlay: overlay)
         let dragMonitor = DragMonitor()
         dragMonitor.delegate = snapController
+        let keyboardMonitor = KeyboardMonitor()
+        keyboardMonitor.delegate = snapController
 
-        let menuBar = MenuBarController(dragMonitor: dragMonitor, snapController: snapController)
+        // Sparkle drives auto-updates; it reads its config from the bundle's
+        // Info.plist, so it only does anything in a real packaged build.
+        let updateController = UpdateController()
 
+        let menuBar = MenuBarController(
+            monitors: [dragMonitor, keyboardMonitor],
+            library: library,
+            onNewLayout: { [weak self] in self?.openEditor(editing: nil) },
+            onEditLayout: { [weak self] layout in self?.openEditor(editing: layout) },
+            onShowHelp: { [weak self] in self?.openHelp() },
+            makeUpdateMenuItem: { [weak updateController] in updateController?.makeMenuItem() }
+        )
+
+        // When the active layout changes (menu pick or editor save), swap the
+        // snappable layout and refresh the menu's checkmarks.
+        library.onChange = { [weak snapController, weak menuBar] in
+            snapController?.layout = library.active
+            menuBar?.refresh()
+        }
+
+        self.library = library
+        self.updateController = updateController
         self.overlay = overlay
         self.snapController = snapController
         self.dragMonitor = dragMonitor
+        self.keyboardMonitor = keyboardMonitor
         self.menuBar = menuBar
 
         startMonitoringWhenTrusted()
+    }
+
+    /// Loads the persisted library, falling back to a non-persistent one if the
+    /// store can't be reached so the app still runs with the built-in layouts.
+    private func loadLibrary() -> LayoutLibrary {
+        let builtins = LayoutTemplate.builtins()
+        do {
+            return try LayoutLibrary(store: try FileLayoutStore.standard(), builtins: builtins)
+        } catch {
+            Log.app.error("Layout store unavailable (\(error.localizedDescription, privacy: .public)); using defaults")
+            // EphemeralLayoutStore never fails, so this force-try is safe.
+            return try! LayoutLibrary(store: EphemeralLayoutStore(), builtins: builtins)
+        }
+    }
+
+    private func openEditor(editing layout: UserLayout?) {
+        // Re-use the existing window rather than stacking editors.
+        if let editor {
+            editor.show()
+            return
+        }
+        let controller = EditorWindowController(
+            editing: layout,
+            onSave: { [weak self] saved in
+                guard let self, let library = self.library else { return }
+                if layout == nil {
+                    library.add(saved)
+                } else {
+                    library.update(saved)
+                }
+            },
+            onClose: { [weak self] in self?.editor = nil }
+        )
+        self.editor = controller
+        controller.show()
+    }
+
+    private func openHelp() {
+        // Re-use the existing window rather than stacking help screens.
+        if let help {
+            help.show()
+            return
+        }
+        let controller = HelpWindowController(onClose: { [weak self] in self?.help = nil })
+        self.help = controller
+        controller.show()
     }
 
     /// Starts the drag monitor immediately if Accessibility is already granted;
@@ -32,8 +108,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// often granted *after* launch, and the event tap can't install until then).
     private func startMonitoringWhenTrusted() {
         if AccessibilityAuthorizer.isTrusted {
-            Log.app.info("Accessibility trusted at launch — starting monitor")
-            dragMonitor?.start()
+            Log.app.info("Accessibility trusted at launch — starting monitors")
+            startMonitors()
             return
         }
 
@@ -41,11 +117,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AccessibilityAuthorizer.promptIfNeeded()
 
         trustPoll = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            // Timers on the main run loop fire on the main thread.
             MainActor.assumeIsolated {
                 guard let self, AccessibilityAuthorizer.isTrusted else { return }
-                Log.app.info("Accessibility granted — starting monitor")
-                self.dragMonitor?.start()
+                Log.app.info("Accessibility granted — starting monitors")
+                self.startMonitors()
                 self.menuBar?.refresh()
                 self.trustPoll?.invalidate()
                 self.trustPoll = nil
@@ -53,8 +128,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Starts mouse-drag and keyboard snapping together.
+    private func startMonitors() {
+        dragMonitor?.start()
+        keyboardMonitor?.start()
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         trustPoll?.invalidate()
         dragMonitor?.stop()
+        keyboardMonitor?.stop()
     }
 }

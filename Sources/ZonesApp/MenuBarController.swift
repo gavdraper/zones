@@ -2,25 +2,33 @@ import AppKit
 import ZonesCore
 
 /// The status-bar item: an on/off toggle for snapping, a picker for the active
-/// layout, and quit. Behaviour is delegated to the drag monitor and snap
-/// controller it is given.
+/// layout (built-ins and the user's own), entry points to the editor, and quit.
+/// Layout state lives in `LayoutLibrary`; this controller only renders it and
+/// forwards intent.
 @MainActor
 final class MenuBarController: NSObject {
     private let statusItem: NSStatusItem
-    private let dragMonitor: DragMonitor
-    private let snapController: SnapController
+    private let monitors: [InputMonitor]
+    private let library: LayoutLibrary
+    private let onNewLayout: () -> Void
+    private let onEditLayout: (UserLayout) -> Void
+    private let onShowHelp: () -> Void
+    private let makeUpdateMenuItem: () -> NSMenuItem?
 
-    /// The selectable built-in layouts, in menu order.
-    private let layouts: [ZoneLayout] = [
-        LayoutTemplate.columns(2),
-        LayoutTemplate.columns(3),
-        LayoutTemplate.grid(rows: 2, columns: 2),
-        LayoutTemplate.priorityGrid()
-    ]
-
-    init(dragMonitor: DragMonitor, snapController: SnapController) {
-        self.dragMonitor = dragMonitor
-        self.snapController = snapController
+    init(
+        monitors: [InputMonitor],
+        library: LayoutLibrary,
+        onNewLayout: @escaping () -> Void,
+        onEditLayout: @escaping (UserLayout) -> Void,
+        onShowHelp: @escaping () -> Void,
+        makeUpdateMenuItem: @escaping () -> NSMenuItem? = { nil }
+    ) {
+        self.monitors = monitors
+        self.library = library
+        self.onNewLayout = onNewLayout
+        self.onEditLayout = onEditLayout
+        self.onShowHelp = onShowHelp
+        self.makeUpdateMenuItem = makeUpdateMenuItem
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
         configureButton()
@@ -33,63 +41,171 @@ final class MenuBarController: NSObject {
         )
     }
 
-    /// Rebuilds the menu to reflect current state (e.g. after snapping becomes
-    /// available once Accessibility is granted).
+    /// Rebuilds the menu to reflect current state (snapping availability, the
+    /// active layout, and the set of user layouts).
     func refresh() {
         buildMenu()
     }
 
     private func buildMenu() {
         let menu = NSMenu()
-
-        let toggle = NSMenuItem(
-            title: "Snapping Enabled", action: #selector(toggleSnapping), keyEquivalent: ""
-        )
-        toggle.target = self
-        toggle.state = dragMonitor.isRunning ? .on : .off
-        menu.addItem(toggle)
-
+        addSnappingToggle(to: menu)
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Layout", action: nil, keyEquivalent: ""))
-        for layout in layouts {
-            let item = NSMenuItem(
-                title: layout.name, action: #selector(selectLayout(_:)), keyEquivalent: ""
-            )
+        addBuiltinLayouts(to: menu)
+        addUserLayouts(to: menu)
+        menu.addItem(.separator())
+        addEditorEntries(to: menu)
+        menu.addItem(.separator())
+        addHelp(to: menu)
+        addUpdates(to: menu)
+        addQuit(to: menu)
+        statusItem.menu = menu
+    }
+
+    // MARK: - Menu sections
+
+    private func addSnappingToggle(to menu: NSMenu) {
+        let toggle = NSMenuItem(title: "Snapping Enabled", action: #selector(toggleSnapping), keyEquivalent: "")
+        toggle.target = self
+        toggle.state = snappingEnabled ? .on : .off
+        menu.addItem(toggle)
+    }
+
+    private func addBuiltinLayouts(to menu: NSMenu) {
+        menu.addItem(sectionHeader("Layout"))
+        for layout in library.builtins {
+            let item = NSMenuItem(title: layout.name, action: #selector(selectBuiltin(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = layout.name
-            item.state = (layout.name == snapController.layout.name) ? .on : .off
+            item.state = isActiveBuiltin(layout.name) ? .on : .off
             menu.addItem(item)
         }
+    }
 
-        menu.addItem(.separator())
+    private func addUserLayouts(to menu: NSMenu) {
+        guard !library.userLayouts.isEmpty else { return }
+        menu.addItem(sectionHeader("My Layouts"))
+        for layout in library.userLayouts {
+            let item = NSMenuItem(title: layout.name, action: nil, keyEquivalent: "")
+            item.state = isActiveUser(layout.id) ? .on : .off
+            item.submenu = userLayoutSubmenu(for: layout)
+            menu.addItem(item)
+        }
+    }
+
+    private func userLayoutSubmenu(for layout: UserLayout) -> NSMenu {
+        let submenu = NSMenu()
+        submenu.addItem(menuItem("Use This Layout", #selector(selectUser(_:)), id: layout.id))
+        submenu.addItem(menuItem("Edit…", #selector(editUser(_:)), id: layout.id))
+        submenu.addItem(.separator())
+        submenu.addItem(menuItem("Delete", #selector(deleteUser(_:)), id: layout.id))
+        return submenu
+    }
+
+    private func addEditorEntries(to menu: NSMenu) {
+        let new = NSMenuItem(title: "New Layout…", action: #selector(newLayout), keyEquivalent: "n")
+        new.target = self
+        menu.addItem(new)
+    }
+
+    private func addHelp(to menu: NSMenu) {
+        let help = NSMenuItem(title: "Zones Help", action: #selector(showHelp), keyEquivalent: "?")
+        help.target = self
+        menu.addItem(help)
+    }
+
+    /// Adds "Check for Updates…" when an updater is wired in. Absent in dev
+    /// builds that don't supply one, so the menu silently omits it.
+    private func addUpdates(to menu: NSMenu) {
+        guard let item = makeUpdateMenuItem() else { return }
+        menu.addItem(item)
+    }
+
+    private func addQuit(to menu: NSMenu) {
         let quit = NSMenuItem(title: "Quit Zones", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
+    }
 
-        statusItem.menu = menu
+    // MARK: - Helpers
+
+    private func sectionHeader(_ title: String) -> NSMenuItem {
+        NSMenuItem(title: title, action: nil, keyEquivalent: "")
+    }
+
+    private func menuItem(_ title: String, _ action: Selector, id: UUID) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = self
+        item.representedObject = id
+        return item
+    }
+
+    private func isActiveBuiltin(_ name: String) -> Bool {
+        library.selection == .builtin(name: name)
+    }
+
+    private func isActiveUser(_ id: UUID) -> Bool {
+        library.selection == .user(id: id)
     }
 
     // MARK: - Actions
 
+    /// Snapping is on when every input monitor is installed; they start and stop
+    /// as a group.
+    private var snappingEnabled: Bool {
+        !monitors.isEmpty && monitors.allSatisfy(\.isRunning)
+    }
+
     @objc private func toggleSnapping(_ sender: NSMenuItem) {
-        if dragMonitor.isRunning {
-            dragMonitor.stop()
+        if snappingEnabled {
+            monitors.forEach { $0.stop() }
             sender.state = .off
         } else {
-            // start() fails if Accessibility permission was revoked; don't claim
-            // "enabled" when the tap never installed.
-            sender.state = dragMonitor.start() ? .on : .off
+            let started = monitors.map { $0.start() }
+            sender.state = started.allSatisfy { $0 } ? .on : .off
         }
     }
 
-    @objc private func selectLayout(_ sender: NSMenuItem) {
-        guard let name = sender.representedObject as? String,
-              let layout = layouts.first(where: { $0.name == name }) else { return }
-        snapController.layout = layout
-        buildMenu()   // refresh checkmarks
+    @objc private func selectBuiltin(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        library.selectBuiltin(named: name)
+    }
+
+    @objc private func selectUser(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? UUID else { return }
+        library.selectUser(id: id)
+    }
+
+    @objc private func editUser(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? UUID, let layout = library.userLayout(id: id) else { return }
+        onEditLayout(layout)
+    }
+
+    @objc private func deleteUser(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? UUID, let layout = library.userLayout(id: id) else { return }
+        guard confirmDeletion(of: layout.name) else { return }
+        library.remove(id: id)
+    }
+
+    @objc private func newLayout() {
+        onNewLayout()
+    }
+
+    @objc private func showHelp() {
+        onShowHelp()
     }
 
     @objc private func quit() {
         NSApplication.shared.terminate(nil)
+    }
+
+    private func confirmDeletion(of name: String) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Delete “\(name)”?"
+        alert.informativeText = "This layout will be removed permanently."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 }

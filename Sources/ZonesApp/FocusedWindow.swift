@@ -21,6 +21,36 @@ struct FocusedWindow {
         return FocusedWindow(element: window as! AXUIElement)
     }
 
+    /// The window's current frame in Quartz/AX (top-left) global coordinates,
+    /// or `nil` if either attribute is unavailable.
+    func frame() -> CGRect? {
+        guard let origin = position(), let size = size() else { return nil }
+        return CGRect(origin: origin, size: size)
+    }
+
+    private func position() -> CGPoint? {
+        guard let value = axValue(kAXPositionAttribute) else { return nil }
+        var point = CGPoint.zero
+        guard AXValueGetValue(value, .cgPoint, &point) else { return nil }
+        return point
+    }
+
+    private func size() -> CGSize? {
+        guard let value = axValue(kAXSizeAttribute) else { return nil }
+        var size = CGSize.zero
+        guard AXValueGetValue(value, .cgSize, &size) else { return nil }
+        return size
+    }
+
+    /// Reads an attribute and returns it as an `AXValue`, or `nil` if absent or
+    /// not an `AXValue`.
+    private func axValue(_ attribute: String) -> AXValue? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
+              let value, CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+        return (value as! AXValue)
+    }
+
     /// Snaps the window to `frame`, expressed in Quartz/AX (top-left) global
     /// coordinates. Position is applied before and after sizing because some
     /// apps clamp one against the other on the first pass.
