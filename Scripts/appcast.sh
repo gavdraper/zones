@@ -38,7 +38,16 @@ fi
 echo "==> Generating appcast from $ARCHIVE_DIR"
 echo "    download prefix: $DOWNLOAD_PREFIX"
 mkdir -p "$(dirname "$APPCAST")"
-"$TOOL" \
+
+# Signing key source: locally the EdDSA private key is read from the Keychain
+# (the default). In CI there's no Keychain, so SPARKLE_PRIVATE_KEY supplies the
+# exported key and we stream it in via `--ed-key-file -`. When the env var is
+# unset the empty stdin is simply ignored and generate_appcast uses the Keychain.
+ED_KEY_ARGS=()
+[[ -n "${SPARKLE_PRIVATE_KEY:-}" ]] && ED_KEY_ARGS=(--ed-key-file -)
+
+printf '%s' "${SPARKLE_PRIVATE_KEY:-}" | "$TOOL" \
+    "${ED_KEY_ARGS[@]}" \
     --download-url-prefix "$DOWNLOAD_PREFIX" \
     --link "https://github.com/gavdraper/zones" \
     -o "$APPCAST" \

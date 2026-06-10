@@ -1,0 +1,72 @@
+name: Release
+
+# Manual, intentional releases. A push trigger is deliberately avoided: this job
+# commits the bumped VERSION + regenerated appcast back to main, which a
+# push-on-main trigger would treat as a new release and loop on forever.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "patch | minor | major | explicit version (e.g. 0.3.0)"
+        required: true
+        default: "patch"
+
+permissions:
+  contents: write          # upload release assets + push the VERSION/appcast commit
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # full history so the commit-back pushes cleanly
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      # Resolves SwiftPM deps, which fetches Sparkle's generate_appcast binary
+      # artifact that Scripts/appcast.sh looks for under .build/artifacts.
+      - name: Resolve dependencies
+        run: swift build
+
+      # No Developer ID on the runner, so bundle.sh ad-hoc signs the .app (its
+      # built-in fallback) and ZONES_SKIP_NOTARIZE skips the notary submission.
+      # The DMG is unnotarised: users right-click -> Open on first launch, and
+      # Sparkle still trusts updates via the EdDSA signature on the appcast.
+      # --- To switch on notarisation once enrolled in the Apple Developer Program:
+      #   1. Add secrets: DEVELOPER_ID_P12 (base64 .p12), P12_PASSWORD,
+      #      APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD.
+      #   2. Add a step to import DEVELOPER_ID_P12 into a temp keychain and
+      #      export ZONES_RELEASE_IDENTITY for the build step below.
+      #   3. Add a step running `xcrun notarytool store-credentials ZonesNotary ...`.
+      #   4. Remove the ZONES_SKIP_NOTARIZE env var. release.sh handles the rest.
+      - name: Build + sign DMG (unnotarised)
+        env:
+          ZONES_SKIP_NOTARIZE: "1"
+        run: ./Scripts/release.sh "${{ github.event.inputs.bump }}"
+
+      - name: Stage DMG + generate EdDSA-signed appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          mkdir -p dist && cp build/Zones-*.dmg dist/
+          ./Scripts/appcast.sh
+
+      # The appcast's enclosure URLs point at the rolling 'downloads' release, so
+      # the DMG must live there. --clobber replaces a same-named asset on re-runs.
+      - name: Upload DMG to the 'downloads' release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload downloads dist/Zones-*.dmg --clobber
+
+      # Persist the version bump (release.sh rewrote ./VERSION) and the new feed
+      # so GitHub Pages serves the update. [skip ci] is defensive in case a push
+      # trigger is ever added later.
+      - name: Commit bumped VERSION + appcast
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION docs/appcast.xml
+          git commit -m "release: ${{ github.event.inputs.bump }} [skip ci]"
+          git push
