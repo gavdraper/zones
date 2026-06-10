@@ -16,7 +16,7 @@ ZONES_BUILD="${ZONES_BUILD:-1}"
 # Sparkle auto-update config baked into Info.plist. The feed URL is the appcast
 # served over HTTPS; the public key verifies update signatures (its private half
 # lives in your Keychain — see Scripts/appcast.sh). Override the feed for staging.
-ZONES_FEED_URL="${ZONES_FEED_URL:-https://gavdraper.github.io/zones/appcast.xml}"
+ZONES_FEED_URL="${ZONES_FEED_URL:-https://gavindraper.com/zones/appcast.xml}"
 ZONES_PUBLIC_ED_KEY="1ouprIZl/OqPjiJ/wGojDHSBMHj6xYCfD/KWCE5JxPs="
 
 # Build a universal (arm64 + x86_64) binary so releases run on both Apple Silicon
