@@ -1,7 +1,7 @@
 # Swift Package Manager
 .build/
 .swiftpm/
-Package.resolved
+# Package.resolved is committed to pin exact dependency versions (e.g. Sparkle).
 
 # Build artifacts / assembled app bundle
 build/
