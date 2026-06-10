@@ -8,6 +8,10 @@ build/
 DerivedData/
 *.app
 
+# Release DMG archive consumed by Scripts/appcast.sh (binaries live in GitHub Releases)
+dist/
+*.dmg
+
 # Xcode (in case anyone opens the package in Xcode)
 *.xcodeproj/project.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
