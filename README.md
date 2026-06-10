@@ -41,16 +41,23 @@ Hold a modifier while dragging a window to overlay a zone layout on your screen,
 
 ### Option A — Download a release _(coming soon)_
 
-Prebuilt `Zones.app` downloads aren't available yet. For now, [build from source](#option-b--build-from-source).
+Prebuilt downloads aren't published yet — for now, [build from source](#option-b--build-from-source). When they land, the flow is:
 
-When releases are published:
-
-1. Grab the latest `Zones.app` from the [**Releases**](../../releases) page.
-2. Move it to your `/Applications` folder.
-3. Because the app is self-signed, macOS Gatekeeper may block the first launch. Right-click `Zones.app` → **Open**, then confirm in the dialog. (You only need to do this once.)
+1. Download `Zones-<version>.dmg` from the [**Releases**](../../releases) page, open it, and drag `Zones.app` into your `/Applications` folder.
+2. **Get past Gatekeeper once.** Zones is **self-signed, not notarised by Apple** (it's built without a paid Apple Developer account), so the first launch is blocked as coming "from an unidentified developer." Clear it once:
+   - **macOS 14 Sonoma:** right-click `Zones.app` → **Open**, then confirm in the dialog.
+   - **macOS 15 Sequoia or later:** double-click it (it'll be blocked), then open **System Settings → Privacy & Security**, scroll to the Zones notice, click **Open Anyway**, and authenticate.
+   - Or skip the dialogs entirely with the one-liner below.
+3. That's the **only** time you'll see a warning. **Updates are automatic from then on:** Zones ships with [Sparkle](https://sparkle-project.org), checks for new versions in the background, and installs them in place — without re-triggering Gatekeeper.
 
 > [!TIP]
-> If macOS still refuses to open it, run `xattr -dr com.apple.quarantine /Applications/Zones.app` to clear the quarantine flag.
+> To bypass the Gatekeeper prompts, clear the quarantine flag after copying the app to `/Applications`:
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/Zones.app
+> ```
+
+> [!NOTE]
+> **Is self-signed safe?** The download is signed with a stable local certificate, and every auto-update is verified by Sparkle's own EdDSA signature before it installs — so updates can't be tampered with in transit. What's missing is Apple's *notarisation*, which is why macOS shows the one-time warning: it can't vouch for the developer the way it can for notarised apps.
 
 ### Option B — Build from source
 
@@ -78,7 +85,7 @@ swift run ZonesApp         # build and launch directly
 ## First run
 
 1. On launch, macOS prompts for **Accessibility** permission — required to observe mouse drags and to move other apps' windows. Grant it in **System Settings → Privacy & Security → Accessibility**, then toggle Zones on.
-2. A split-rectangle icon appears in the **menu bar**. Use it to toggle snapping, choose a layout, create or edit your own via **New Layout…**, or quit.
+2. A split-rectangle icon appears in the **menu bar**. Use it to toggle snapping, choose a layout, create or edit your own via **New Layout…**, **Check for Updates…**, or quit.
 3. **Hold ⇧ Shift while dragging a window.** Zone overlays appear, the zone under your cursor highlights, and releasing snaps the window into it.
 4. **Or hold ⌃⌥ and tap the arrow keys** to move the focused window between zones without the mouse. The zone overlay appears with the destination highlighted and stays up while you hold ⌃⌥, so you can keep tapping to walk the window across the layout; release the keys to dismiss it. A window that isn't in a zone yet lands in the nearest one.
 
