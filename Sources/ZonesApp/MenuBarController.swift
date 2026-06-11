@@ -65,13 +65,13 @@ final class MenuBarController: NSObject {
     // MARK: - Menu sections
 
     private func addSettings(to menu: NSMenu) {
-        let item = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        let item = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: "")
         item.target = self
         menu.addItem(item)
     }
 
     private func addBuiltinLayouts(to menu: NSMenu) {
-        menu.addItem(sectionHeader("Layout"))
+        menu.addItem(sectionHeader("Built-in Layouts"))
         for layout in library.builtins {
             let item = NSMenuItem(title: layout.name, action: #selector(selectBuiltin(_:)), keyEquivalent: "")
             item.target = self
@@ -102,13 +102,13 @@ final class MenuBarController: NSObject {
     }
 
     private func addEditorEntries(to menu: NSMenu) {
-        let new = NSMenuItem(title: "New Layout…", action: #selector(newLayout), keyEquivalent: "n")
+        let new = NSMenuItem(title: "New Layout…", action: #selector(newLayout), keyEquivalent: "")
         new.target = self
         menu.addItem(new)
     }
 
     private func addHelp(to menu: NSMenu) {
-        let help = NSMenuItem(title: "Zones Help", action: #selector(showHelp), keyEquivalent: "?")
+        let help = NSMenuItem(title: "Zones Help", action: #selector(showHelp), keyEquivalent: "")
         help.target = self
         menu.addItem(help)
     }
@@ -121,7 +121,7 @@ final class MenuBarController: NSObject {
     }
 
     private func addQuit(to menu: NSMenu) {
-        let quit = NSMenuItem(title: "Quit Zones", action: #selector(quit), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "Quit Zones", action: #selector(quit), keyEquivalent: "")
         quit.target = self
         menu.addItem(quit)
     }
@@ -129,7 +129,7 @@ final class MenuBarController: NSObject {
     // MARK: - Helpers
 
     private func sectionHeader(_ title: String) -> NSMenuItem {
-        NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        NSMenuItem.sectionHeader(title: title)
     }
 
     private func menuItem(_ title: String, _ action: Selector, id: UUID) -> NSMenuItem {

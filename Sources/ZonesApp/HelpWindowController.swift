@@ -52,13 +52,13 @@ final class HelpWindowController: NSObject, NSWindowDelegate {
                 symbol: "plus.rectangle",
                 title: "Create a layout",
                 detail: "Choose “New Layout…” to split a grid into the zones you want, then save it.",
-                shortcut: "⌘ N"
+                shortcut: nil
             ),
             HelpTopic(
                 symbol: "slider.horizontal.3",
                 title: "Gaps & hotkeys",
                 detail: "Open “Settings…” to inset snapped windows with a gap, choose which modifier keys arm the hotkeys, and toggle the on-screen hints.",
-                shortcut: "⌘ ,"
+                shortcut: nil
             )
         ]
     }
@@ -74,7 +74,7 @@ final class HelpWindowController: NSObject, NSWindowDelegate {
         self.topics = Self.topics(for: hotkeyScheme)
         self.onClose = onClose
         window = NSWindow(
-            contentRect: CGRect(x: 0, y: 0, width: 460, height: 660),
+            contentRect: CGRect(x: 0, y: 0, width: 460, height: 100),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -84,8 +84,15 @@ final class HelpWindowController: NSObject, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.title = "Zones Help"
         window.delegate = self
+
+        // Size the window to its content's fitting height. The width is fixed at
+        // 460 first so the wrapping detail labels compute their wrapped height
+        // against the final layout width before we read `fittingSize`.
+        let content = buildContentView()
+        window.contentView = content
+        window.layoutIfNeeded()
+        window.setContentSize(NSSize(width: 460, height: content.fittingSize.height))
         window.center()
-        window.contentView = buildContentView()
     }
 
     /// Brings the help window to the front, promoting the agent so it can take

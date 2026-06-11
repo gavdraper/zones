@@ -29,7 +29,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         self.library = library
         self.onClose = onClose
         window = NSWindow(
-            contentRect: CGRect(x: 0, y: 0, width: 460, height: 320),
+            contentRect: CGRect(x: 0, y: 0, width: 460, height: 100),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -39,8 +39,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.title = "Zones Settings"
         window.delegate = self
+        let content = buildContentView()
+        window.contentView = content
+        // Size the window to the content's natural height so the sections keep
+        // their fixed spacing instead of the stack stretching to fill a taller
+        // window and leaving a dead gap between sections.
+        window.setContentSize(NSSize(width: 460, height: content.fittingSize.height))
         window.center()
-        window.contentView = buildContentView()
         syncFromLibrary()
     }
 
