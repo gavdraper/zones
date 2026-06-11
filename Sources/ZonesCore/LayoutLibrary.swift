@@ -20,6 +20,9 @@ public final class LayoutLibrary {
     /// held.
     public private(set) var hintsEnabled: Bool
 
+    /// Which modifier preset arms the keyboard chords.
+    public private(set) var hotkeyScheme: HotkeyScheme
+
     /// Called after any change to the layouts or the active selection.
     public var onChange: (() -> Void)?
 
@@ -34,6 +37,7 @@ public final class LayoutLibrary {
         self.userLayouts = persisted.userLayouts
         self.gap = CGFloat(persisted.gap)
         self.hintsEnabled = persisted.hintsEnabled
+        self.hotkeyScheme = persisted.hotkeyScheme
         self.selection = Self.resolve(persisted.active, builtins: builtins, userLayouts: persisted.userLayouts)
 
         // A dangling persisted selection (deleted user layout, renamed built-in)
@@ -84,6 +88,15 @@ public final class LayoutLibrary {
         saveAndNotify()
     }
 
+    /// Sets the modifier preset arming the keyboard chords, persists it, and
+    /// notifies observers so the keyboard monitor and hint controller pick up
+    /// the new bindings.
+    public func setHotkeyScheme(_ scheme: HotkeyScheme) {
+        guard scheme != hotkeyScheme else { return }
+        hotkeyScheme = scheme
+        saveAndNotify()
+    }
+
     // MARK: - Mutation
 
     /// Adds a new user layout (or replaces one with the same id) and makes it
@@ -131,7 +144,7 @@ public final class LayoutLibrary {
     }
 
     private func persist() throws {
-        try store.save(PersistedLibrary(userLayouts: userLayouts, active: selection, gap: Double(gap), hintsEnabled: hintsEnabled))
+        try store.save(PersistedLibrary(userLayouts: userLayouts, active: selection, gap: Double(gap), hintsEnabled: hintsEnabled, hotkeyScheme: hotkeyScheme))
     }
 
     private static func resolve(

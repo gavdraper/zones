@@ -13,32 +13,39 @@ public struct PersistedLibrary: Equatable, Codable, Sendable {
     /// `true`, so the feature is on by default.
     public var hintsEnabled: Bool
 
+    /// Which modifier preset arms the keyboard chords. Files written before
+    /// schemes were configurable have no such key and decode to the default.
+    public var hotkeyScheme: HotkeyScheme
+
     public init(
         userLayouts: [UserLayout] = [],
         active: LayoutSelection? = nil,
         gap: Double = 0,
-        hintsEnabled: Bool = true
+        hintsEnabled: Bool = true,
+        hotkeyScheme: HotkeyScheme = .default
     ) {
         self.userLayouts = userLayouts
         self.active = active
         self.gap = gap
         self.hintsEnabled = hintsEnabled
+        self.hotkeyScheme = hotkeyScheme
     }
 
     public static var empty: PersistedLibrary { PersistedLibrary() }
 
     private enum CodingKeys: String, CodingKey {
-        case userLayouts, active, gap, hintsEnabled
+        case userLayouts, active, gap, hintsEnabled, hotkeyScheme
     }
 
-    // Custom decoding keeps older library.json files (no `gap`/`hintsEnabled`,
-    // and historically an absent `userLayouts`/`active`) loadable instead of
-    // failing the whole read. Encoding stays synthesized.
+    // Custom decoding keeps older library.json files (no `gap`/`hintsEnabled`/
+    // `hotkeyScheme`, and historically an absent `userLayouts`/`active`)
+    // loadable instead of failing the whole read. Encoding stays synthesized.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         userLayouts = try container.decodeIfPresent([UserLayout].self, forKey: .userLayouts) ?? []
         active = try container.decodeIfPresent(LayoutSelection.self, forKey: .active)
         gap = try container.decodeIfPresent(Double.self, forKey: .gap) ?? 0
         hintsEnabled = try container.decodeIfPresent(Bool.self, forKey: .hintsEnabled) ?? true
+        hotkeyScheme = try container.decodeIfPresent(HotkeyScheme.self, forKey: .hotkeyScheme) ?? .default
     }
 }

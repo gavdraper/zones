@@ -150,7 +150,8 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
     // MARK: - NSWindowDelegate
 
     func windowWillClose(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        // Demotion back to a menu-bar agent is owned by AppDelegate via onClose,
+        // so closing this window doesn't hide another (Settings/Help) still open.
         Log.editor.info("editor window closed")
         // `onClose` releases the owner's last strong reference to this controller.
         // Deferring it lets the in-flight `close()` call stack unwind first, so the

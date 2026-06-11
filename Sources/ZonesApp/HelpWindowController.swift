@@ -1,4 +1,5 @@
 import AppKit
+import ZonesCore
 
 /// A single row of help: an SF Symbol, a short title, and an explanation. The
 /// `shortcut`, when present, is rendered as a key-cap style chip.
@@ -19,54 +20,58 @@ final class HelpWindowController: NSObject, NSWindowDelegate {
     private let window: NSWindow
     private let onClose: () -> Void
 
-    private static let topics: [HelpTopic] = [
-        HelpTopic(
-            symbol: "rectangle.split.3x1",
-            title: "Snap a window to a zone",
-            detail: "Hold Shift while dragging a window. Release it over a highlighted zone to snap it into place.",
-            shortcut: "⇧ + drag"
-        ),
-        HelpTopic(
-            symbol: "arrow.left.arrow.right",
-            title: "Move between zones",
-            detail: "Send the focused window to the next zone in any direction without touching the mouse.",
-            shortcut: "⌃ ⌥ + arrows"
-        ),
-        HelpTopic(
-            symbol: "rectangle.lefthalf.inset.filled",
-            title: "Snap to halves & quarters",
-            detail: "Place the focused window without a layout: arrows for halves, U/I/J/K for quarters, Return to maximize, C to center.",
-            shortcut: "⌃ ⌥ ⌘ + key"
-        ),
-        HelpTopic(
-            symbol: "square.grid.2x2",
-            title: "Switch layouts",
-            detail: "Pick a built-in or your own layout from the Zones menu-bar icon.",
-            shortcut: nil
-        ),
-        HelpTopic(
-            symbol: "plus.rectangle",
-            title: "Create a layout",
-            detail: "Choose “New Layout…” to split a grid into the zones you want, then save it.",
-            shortcut: "⌘ N"
-        ),
-        HelpTopic(
-            symbol: "rectangle.split.2x1",
-            title: "Add gaps between windows",
-            detail: "Pick a spacing under “Gaps” in the menu to inset every snapped window. Applies to zones and size actions alike.",
-            shortcut: nil
-        ),
-        HelpTopic(
-            symbol: "power",
-            title: "Pause snapping",
-            detail: "Toggle “Snapping Enabled” in the menu to temporarily stop Zones from intercepting drags.",
-            shortcut: nil
-        )
-    ]
+    /// The move and region chord rows reflect the active scheme, so Help never
+    /// advertises modifiers that no longer work.
+    private static func topics(for scheme: HotkeyScheme) -> [HelpTopic] {
+        [
+            HelpTopic(
+                symbol: "rectangle.split.3x1",
+                title: "Snap a window to a zone",
+                detail: "Hold Shift while dragging a window. Release it over a highlighted zone to snap it into place.",
+                shortcut: "⇧ + drag"
+            ),
+            HelpTopic(
+                symbol: "arrow.left.arrow.right",
+                title: "Move between zones",
+                detail: "Send the focused window to the next zone in any direction without touching the mouse.",
+                shortcut: "\(scheme.moveModifiers.glyphs.joined(separator: " ")) + arrows"
+            ),
+            HelpTopic(
+                symbol: "rectangle.lefthalf.inset.filled",
+                title: "Snap to halves & quarters",
+                detail: "Place the focused window without a layout: arrows for halves, U/I/J/K for quarters, Return to maximize, C to center.",
+                shortcut: "\(scheme.regionModifiers.glyphs.joined(separator: " ")) + key"
+            ),
+            HelpTopic(
+                symbol: "square.grid.2x2",
+                title: "Switch layouts",
+                detail: "Pick a built-in or your own layout from the Zones menu-bar icon.",
+                shortcut: nil
+            ),
+            HelpTopic(
+                symbol: "plus.rectangle",
+                title: "Create a layout",
+                detail: "Choose “New Layout…” to split a grid into the zones you want, then save it.",
+                shortcut: "⌘ N"
+            ),
+            HelpTopic(
+                symbol: "slider.horizontal.3",
+                title: "Gaps & hotkeys",
+                detail: "Open “Settings…” to inset snapped windows with a gap, choose which modifier keys arm the hotkeys, and toggle the on-screen hints.",
+                shortcut: "⌘ ,"
+            )
+        ]
+    }
 
-    /// - Parameter onClose: called when the window closes, so the owner can
-    ///   release this controller.
-    init(onClose: @escaping () -> Void) {
+    private let topics: [HelpTopic]
+
+    /// - Parameters:
+    ///   - hotkeyScheme: the active modifier preset, so the hotkey rows show the
+    ///     chords that actually fire.
+    ///   - onClose: called when the window closes, so the owner can release this
+    ///     controller.
+    init(hotkeyScheme: HotkeyScheme, onClose: @escaping () -> Void) {
+        self.topics = Self.topics(for: hotkeyScheme)
         self.onClose = onClose
         window = NSWindow(
             contentRect: CGRect(x: 0, y: 0, width: 460, height: 660),
@@ -96,7 +101,7 @@ final class HelpWindowController: NSObject, NSWindowDelegate {
 
     private func buildContentView() -> NSView {
         let header = headerLabel()
-        let rows = Self.topics.map(topicRow)
+        let rows = topics.map(topicRow)
         let stack = NSStackView(views: [header] + rows)
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -193,7 +198,8 @@ final class HelpWindowController: NSObject, NSWindowDelegate {
     // MARK: - NSWindowDelegate
 
     func windowWillClose(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        // Demotion back to a menu-bar agent is owned by AppDelegate via onClose,
+        // so closing this window doesn't hide another (Settings/Editor) still open.
         Log.help.info("help window closed")
         // Defer so the in-flight `close()` stack unwinds before `onClose`
         // releases the owner's last reference to this controller.

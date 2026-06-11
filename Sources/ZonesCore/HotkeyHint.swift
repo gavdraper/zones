@@ -36,45 +36,54 @@ public struct HotkeyHintContent: Equatable, Sendable {
 /// matching, but it yields displayable glyphs and captions rather than commands.
 public enum HotkeyHint {
 
-    /// The hint for exactly these held modifiers, or `nil` when they don't arm a
-    /// chord family. Matching is exact, so a stray extra modifier (e.g. Shift)
-    /// shows nothing — the same rule the bindings resolve under.
-    public static func content(for modifiers: Modifiers) -> HotkeyHintContent? {
-        if modifiers == KeyBinding.moveModifiers { return move }
-        if modifiers == KeyBinding.regionModifiers { return region }
+    /// The hint for exactly these held modifiers under `scheme`, or `nil` when
+    /// they don't arm a chord family. Matching is exact, so a stray extra
+    /// modifier shows nothing — the same rule the bindings resolve under. The
+    /// modifier glyphs are taken from the scheme, so the hint tracks whichever
+    /// chord the user has chosen.
+    public static func content(
+        for modifiers: Modifiers,
+        scheme: HotkeyScheme = .default
+    ) -> HotkeyHintContent? {
+        if modifiers == scheme.moveModifiers { return move(scheme) }
+        if modifiers == scheme.regionModifiers { return region(scheme) }
         return nil
     }
 
-    /// `⌃⌥` — step the focused window between zones in any of four directions.
-    private static let move = HotkeyHintContent(
-        modifierGlyphs: ["⌃", "⌥"],
-        title: "Move between zones",
-        arrows: [
-            HintKey(glyph: "↑"),
-            HintKey(glyph: "↓"),
-            HintKey(glyph: "←"),
-            HintKey(glyph: "→"),
-        ],
-        extras: []
-    )
+    /// Step the focused window between zones in any of four directions.
+    private static func move(_ scheme: HotkeyScheme) -> HotkeyHintContent {
+        HotkeyHintContent(
+            modifierGlyphs: scheme.moveModifiers.glyphs,
+            title: "Move between zones",
+            arrows: [
+                HintKey(glyph: "↑"),
+                HintKey(glyph: "↓"),
+                HintKey(glyph: "←"),
+                HintKey(glyph: "→"),
+            ],
+            extras: []
+        )
+    }
 
-    /// `⌃⌥⌘` — snap the focused window to a built-in screen region.
-    private static let region = HotkeyHintContent(
-        modifierGlyphs: ["⌃", "⌥", "⌘"],
-        title: "Snap to region",
-        arrows: [
-            HintKey(glyph: "↑", caption: "Top half"),
-            HintKey(glyph: "↓", caption: "Bottom half"),
-            HintKey(glyph: "←", caption: "Left half"),
-            HintKey(glyph: "→", caption: "Right half"),
-        ],
-        extras: [
-            HintKey(glyph: "U", caption: "Top left"),
-            HintKey(glyph: "I", caption: "Top right"),
-            HintKey(glyph: "J", caption: "Bottom left"),
-            HintKey(glyph: "K", caption: "Bottom right"),
-            HintKey(glyph: "↩", caption: "Maximize"),
-            HintKey(glyph: "C", caption: "Center"),
-        ]
-    )
+    /// Snap the focused window to a built-in screen region.
+    private static func region(_ scheme: HotkeyScheme) -> HotkeyHintContent {
+        HotkeyHintContent(
+            modifierGlyphs: scheme.regionModifiers.glyphs,
+            title: "Snap to region",
+            arrows: [
+                HintKey(glyph: "↑", caption: "Top half"),
+                HintKey(glyph: "↓", caption: "Bottom half"),
+                HintKey(glyph: "←", caption: "Left half"),
+                HintKey(glyph: "→", caption: "Right half"),
+            ],
+            extras: [
+                HintKey(glyph: "U", caption: "Top left"),
+                HintKey(glyph: "I", caption: "Top right"),
+                HintKey(glyph: "J", caption: "Bottom left"),
+                HintKey(glyph: "K", caption: "Bottom right"),
+                HintKey(glyph: "↩", caption: "Maximize"),
+                HintKey(glyph: "C", caption: "Center"),
+            ]
+        )
+    }
 }

@@ -83,6 +83,35 @@ struct LayoutLibraryTests {
         #expect(store.saved.gap == 16)
     }
 
+    @Test("Loads the persisted hotkey scheme")
+    func loadsPersistedScheme() throws {
+        let store = InMemoryLayoutStore(PersistedLibrary(hotkeyScheme: .optionCommand))
+        let library = try LayoutLibrary(store: store, builtins: builtins)
+        #expect(library.hotkeyScheme == .optionCommand)
+    }
+
+    @Test("Defaults to the default scheme when nothing is persisted")
+    func defaultsToDefaultScheme() throws {
+        let library = try LayoutLibrary(store: InMemoryLayoutStore(), builtins: builtins)
+        #expect(library.hotkeyScheme == .default)
+    }
+
+    @Test("Setting the hotkey scheme persists, notifies, and is a no-op when unchanged")
+    func setSchemePersistsAndNotifies() throws {
+        let store = InMemoryLayoutStore()
+        let library = try LayoutLibrary(store: store, builtins: builtins)
+
+        var notified = false
+        library.onChange = { notified = true }
+        library.setHotkeyScheme(.default)   // equals current value, so no-op
+        #expect(!notified)
+
+        library.setHotkeyScheme(.controlShift)
+        #expect(notified)
+        #expect(library.hotkeyScheme == .controlShift)
+        #expect(store.saved.hotkeyScheme == .controlShift)
+    }
+
     @Test("Removing the active layout falls back to the first built-in")
     func removeActiveFallsBack() throws {
         let layout = makeLayout()

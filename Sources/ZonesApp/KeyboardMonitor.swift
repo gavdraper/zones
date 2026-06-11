@@ -34,6 +34,10 @@ final class KeyboardMonitor: InputMonitor {
     weak var delegate: KeyboardMonitorDelegate?
     weak var hintObserver: HotkeyHintObserver?
 
+    /// The active modifier preset that arms the chord families. Updated by the
+    /// composition root when the user changes it in Settings.
+    var scheme: HotkeyScheme = .default
+
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
@@ -104,7 +108,7 @@ final class KeyboardMonitor: InputMonitor {
         // Modifier changes are never consumed; we only watch them to learn when
         // the held move chord is let go, so the overlay can be dismissed.
         if type == .flagsChanged {
-            if engaged && !modifiers.contains(KeyBinding.moveModifiers) {
+            if engaged && !modifiers.contains(scheme.moveModifiers) {
                 engaged = false
                 delegate?.keyboardMonitorDidDisengage(self)
             }
@@ -113,7 +117,7 @@ final class KeyboardMonitor: InputMonitor {
         }
 
         guard type == .keyDown,
-              let command = KeyBinding.command(forKeyCode: keyCode, modifiers: modifiers) else { return false }
+              let command = KeyBinding.command(forKeyCode: keyCode, modifiers: modifiers, scheme: scheme) else { return false }
 
         switch command {
         case let .move(direction):

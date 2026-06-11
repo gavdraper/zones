@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBar: MenuBarController?
     private var library: LayoutLibrary?
     private var editor: EditorWindowController?
+    private var settings: SettingsWindowController?
     private var help: HelpWindowController?
     private var updateController: UpdateController?
     private var trustPoll: Timer?
@@ -27,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dragMonitor.delegate = snapController
         let keyboardMonitor = KeyboardMonitor()
         keyboardMonitor.delegate = snapController
+        keyboardMonitor.scheme = library.hotkeyScheme
 
         // The hint HUD observes the same keyboard monitor, independently of
         // snapping, to show the available hotkeys while the modifiers are held.
@@ -34,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window: HotkeyHintWindowController(),
             isEnabled: library.hintsEnabled
         )
+        hintController.scheme = library.hotkeyScheme
         keyboardMonitor.hintObserver = hintController
 
         // Sparkle drives auto-updates; it reads its config from the bundle's
@@ -41,20 +44,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let updateController = UpdateController()
 
         let menuBar = MenuBarController(
-            monitors: [dragMonitor, keyboardMonitor],
             library: library,
             onNewLayout: { [weak self] in self?.openEditor(editing: nil) },
             onEditLayout: { [weak self] layout in self?.openEditor(editing: layout) },
+            onShowSettings: { [weak self] in self?.openSettings() },
             onShowHelp: { [weak self] in self?.openHelp() },
             makeUpdateMenuItem: { [weak updateController] in updateController?.makeMenuItem() }
         )
 
-        // When the active layout changes (menu pick or editor save), swap the
-        // snappable layout and refresh the menu's checkmarks.
-        library.onChange = { [weak snapController, weak hintController, weak menuBar] in
+        // When settings or the active layout change (menu pick, editor save, or
+        // the Settings window), push the new state into the snap controller,
+        // input monitor, and hint HUD, and refresh the menu's checkmarks.
+        library.onChange = { [weak snapController, weak keyboardMonitor, weak hintController, weak menuBar] in
             snapController?.layout = library.active
             snapController?.gap = library.gap
+            keyboardMonitor?.scheme = library.hotkeyScheme
             hintController?.isEnabled = library.hintsEnabled
+            hintController?.scheme = library.hotkeyScheme
             menuBar?.refresh()
         }
 
@@ -99,9 +105,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     library.update(saved)
                 }
             },
-            onClose: { [weak self] in self?.editor = nil }
+            onClose: { [weak self] in
+                self?.editor = nil
+                self?.demoteIfNoWindowsOpen()
+            }
         )
         self.editor = controller
+        controller.show()
+    }
+
+    private func openSettings() {
+        // Re-use the existing window rather than stacking settings panes.
+        if let settings {
+            settings.show()
+            return
+        }
+        guard let library else { return }
+        let controller = SettingsWindowController(
+            library: library,
+            onClose: { [weak self] in
+                self?.settings = nil
+                self?.demoteIfNoWindowsOpen()
+            }
+        )
+        self.settings = controller
         controller.show()
     }
 
@@ -111,9 +138,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             help.show()
             return
         }
-        let controller = HelpWindowController(onClose: { [weak self] in self?.help = nil })
+        guard let library else { return }
+        let controller = HelpWindowController(
+            hotkeyScheme: library.hotkeyScheme,
+            onClose: { [weak self] in
+                self?.help = nil
+                self?.demoteIfNoWindowsOpen()
+            }
+        )
         self.help = controller
         controller.show()
+    }
+
+    /// Returns the app to a menu-bar agent (`.accessory`) once the last managed
+    /// window has closed. Each controller promotes to `.regular` when it opens;
+    /// demotion is centralized here so closing one window never hides another
+    /// that's still on screen.
+    private func demoteIfNoWindowsOpen() {
+        guard editor == nil, settings == nil, help == nil else { return }
+        NSApp.setActivationPolicy(.accessory)
     }
 
     /// Starts the drag monitor immediately if Accessibility is already granted;

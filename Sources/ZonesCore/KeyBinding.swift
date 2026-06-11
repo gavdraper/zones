@@ -9,6 +9,17 @@ public struct Modifiers: OptionSet, Sendable {
     public static let option  = Modifiers(rawValue: 1 << 1)
     public static let command = Modifiers(rawValue: 1 << 2)
     public static let shift   = Modifiers(rawValue: 1 << 3)
+
+    /// The held modifiers as display glyphs in canonical `⌃⌥⇧⌘` order, for
+    /// rendering a chord in hints, help, and Settings.
+    public var glyphs: [String] {
+        var glyphs: [String] = []
+        if contains(.control) { glyphs.append("⌃") }
+        if contains(.option)  { glyphs.append("⌥") }
+        if contains(.shift)   { glyphs.append("⇧") }
+        if contains(.command) { glyphs.append("⌘") }
+        return glyphs
+    }
 }
 
 /// What a recognised key chord should do.
@@ -23,17 +34,20 @@ public enum KeyCommand: Equatable, Sendable {
 /// modifiers.
 ///
 /// Two chord families share the arrow keys but can never collide because the
-/// modifier sets are matched *exactly* and are disjoint:
-/// - Zone moves: `⌃⌥` + arrows.
-/// - Built-in regions: `⌃⌥⌘` + arrows (halves) / U·I·J·K (quarters) /
-///   Return (maximize) / C (center).
+/// modifier sets are matched *exactly* and are disjoint. Which modifiers arm
+/// each family is chosen by the active ``HotkeyScheme``; the keycode→action
+/// tables below never change:
+/// - Zone moves: scheme move modifiers + arrows.
+/// - Built-in regions: scheme region modifiers + arrows (halves) / U·I·J·K
+///   (quarters) / Return (maximize) / C (center).
 public enum KeyBinding {
 
-    /// Modifiers that arm the zone-move family.
-    public static let moveModifiers: Modifiers = [.control, .option]
+    /// Modifiers that arm the zone-move family under the default scheme. Kept
+    /// for callers and tests that don't thread a scheme through.
+    public static var moveModifiers: Modifiers { HotkeyScheme.default.moveModifiers }
 
-    /// Modifiers that arm the built-in-region family.
-    public static let regionModifiers: Modifiers = [.control, .option, .command]
+    /// Modifiers that arm the built-in-region family under the default scheme.
+    public static var regionModifiers: Modifiers { HotkeyScheme.default.regionModifiers }
 
     /// Arrow keycodes (`kVK_*`) → navigation direction.
     private static let moves: [Int64: ZoneNavigator.Direction] = [
@@ -58,14 +72,18 @@ public enum KeyBinding {
         8:   .center,              // C
     ]
 
-    /// The command for `keyCode` under exactly `modifiers`, or `nil` if the
-    /// chord isn't bound. Modifiers must match a family set exactly, so a stray
-    /// extra modifier (e.g. Shift) never resolves.
-    public static func command(forKeyCode keyCode: Int64, modifiers: Modifiers) -> KeyCommand? {
-        if modifiers == moveModifiers {
+    /// The command for `keyCode` under exactly `modifiers` for the given
+    /// `scheme`, or `nil` if the chord isn't bound. Modifiers must match a
+    /// family set exactly, so a stray extra modifier never resolves.
+    public static func command(
+        forKeyCode keyCode: Int64,
+        modifiers: Modifiers,
+        scheme: HotkeyScheme = .default
+    ) -> KeyCommand? {
+        if modifiers == scheme.moveModifiers {
             return moves[keyCode].map(KeyCommand.move)
         }
-        if modifiers == regionModifiers {
+        if modifiers == scheme.regionModifiers {
             return regions[keyCode].map(KeyCommand.region)
         }
         return nil

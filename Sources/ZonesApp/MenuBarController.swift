@@ -1,32 +1,32 @@
 import AppKit
 import ZonesCore
 
-/// The status-bar item: an on/off toggle for snapping, a picker for the active
-/// layout (built-ins and the user's own), entry points to the editor, and quit.
-/// Layout state lives in `LayoutLibrary`; this controller only renders it and
-/// forwards intent.
+/// The status-bar item: an entry to Settings, a picker for the active layout
+/// (built-ins and the user's own), entry points to the editor, and quit. Layout
+/// state lives in `LayoutLibrary`; this controller only renders it and forwards
+/// intent.
 @MainActor
 final class MenuBarController: NSObject {
     private let statusItem: NSStatusItem
-    private let monitors: [InputMonitor]
     private let library: LayoutLibrary
     private let onNewLayout: () -> Void
     private let onEditLayout: (UserLayout) -> Void
+    private let onShowSettings: () -> Void
     private let onShowHelp: () -> Void
     private let makeUpdateMenuItem: () -> NSMenuItem?
 
     init(
-        monitors: [InputMonitor],
         library: LayoutLibrary,
         onNewLayout: @escaping () -> Void,
         onEditLayout: @escaping (UserLayout) -> Void,
+        onShowSettings: @escaping () -> Void,
         onShowHelp: @escaping () -> Void,
         makeUpdateMenuItem: @escaping () -> NSMenuItem? = { nil }
     ) {
-        self.monitors = monitors
         self.library = library
         self.onNewLayout = onNewLayout
         self.onEditLayout = onEditLayout
+        self.onShowSettings = onShowSettings
         self.onShowHelp = onShowHelp
         self.makeUpdateMenuItem = makeUpdateMenuItem
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -41,23 +41,20 @@ final class MenuBarController: NSObject {
         )
     }
 
-    /// Rebuilds the menu to reflect current state (snapping availability, the
-    /// active layout, and the set of user layouts).
+    /// Rebuilds the menu to reflect current state (the active layout and the set
+    /// of user layouts).
     func refresh() {
         buildMenu()
     }
 
     private func buildMenu() {
         let menu = NSMenu()
-        addSnappingToggle(to: menu)
-        addHintsToggle(to: menu)
+        addSettings(to: menu)
         menu.addItem(.separator())
         addBuiltinLayouts(to: menu)
         addUserLayouts(to: menu)
         menu.addItem(.separator())
         addEditorEntries(to: menu)
-        menu.addItem(.separator())
-        addGapMenu(to: menu)
         menu.addItem(.separator())
         addHelp(to: menu)
         addUpdates(to: menu)
@@ -67,18 +64,10 @@ final class MenuBarController: NSObject {
 
     // MARK: - Menu sections
 
-    private func addSnappingToggle(to menu: NSMenu) {
-        let toggle = NSMenuItem(title: "Snapping Enabled", action: #selector(toggleSnapping), keyEquivalent: "")
-        toggle.target = self
-        toggle.state = snappingEnabled ? .on : .off
-        menu.addItem(toggle)
-    }
-
-    private func addHintsToggle(to menu: NSMenu) {
-        let toggle = NSMenuItem(title: "Show Hotkey Hints", action: #selector(toggleHints), keyEquivalent: "")
-        toggle.target = self
-        toggle.state = library.hintsEnabled ? .on : .off
-        menu.addItem(toggle)
+    private func addSettings(to menu: NSMenu) {
+        let item = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        item.target = self
+        menu.addItem(item)
     }
 
     private func addBuiltinLayouts(to menu: NSMenu) {
@@ -116,28 +105,6 @@ final class MenuBarController: NSObject {
         let new = NSMenuItem(title: "New Layout…", action: #selector(newLayout), keyEquivalent: "n")
         new.target = self
         menu.addItem(new)
-    }
-
-    /// Preset gap sizes (points) offered in the menu.
-    private static let gapPresets: [Double] = [0, 4, 8, 12, 16]
-
-    private func addGapMenu(to menu: NSMenu) {
-        let item = NSMenuItem(title: "Gaps", action: nil, keyEquivalent: "")
-        item.submenu = gapSubmenu()
-        menu.addItem(item)
-    }
-
-    private func gapSubmenu() -> NSMenu {
-        let submenu = NSMenu()
-        for preset in Self.gapPresets {
-            let title = preset == 0 ? "None" : "\(Int(preset)) pt"
-            let entry = NSMenuItem(title: title, action: #selector(setGap(_:)), keyEquivalent: "")
-            entry.target = self
-            entry.representedObject = preset
-            entry.state = library.gap == CGFloat(preset) ? .on : .off
-            submenu.addItem(entry)
-        }
-        return submenu
     }
 
     private func addHelp(to menu: NSMenu) {
@@ -182,24 +149,8 @@ final class MenuBarController: NSObject {
 
     // MARK: - Actions
 
-    /// Snapping is on when every input monitor is installed; they start and stop
-    /// as a group.
-    private var snappingEnabled: Bool {
-        !monitors.isEmpty && monitors.allSatisfy(\.isRunning)
-    }
-
-    @objc private func toggleSnapping(_ sender: NSMenuItem) {
-        if snappingEnabled {
-            monitors.forEach { $0.stop() }
-            sender.state = .off
-        } else {
-            let started = monitors.map { $0.start() }
-            sender.state = started.allSatisfy { $0 } ? .on : .off
-        }
-    }
-
-    @objc private func toggleHints() {
-        library.setHintsEnabled(!library.hintsEnabled)
+    @objc private func showSettings() {
+        onShowSettings()
     }
 
     @objc private func selectBuiltin(_ sender: NSMenuItem) {
@@ -221,11 +172,6 @@ final class MenuBarController: NSObject {
         guard let id = sender.representedObject as? UUID, let layout = library.userLayout(id: id) else { return }
         guard confirmDeletion(of: layout.name) else { return }
         library.remove(id: id)
-    }
-
-    @objc private func setGap(_ sender: NSMenuItem) {
-        guard let value = sender.representedObject as? Double else { return }
-        library.setGap(CGFloat(value))
     }
 
     @objc private func newLayout() {

@@ -57,6 +57,19 @@ struct PersistedLibraryCodableTests {
         #expect(library.hintsEnabled)
     }
 
+    @Test("Round-trips the hotkey scheme")
+    func hotkeySchemeRoundTrips() throws {
+        let library = PersistedLibrary(hotkeyScheme: .optionCommand)
+        #expect(try roundTrip(library) == library)
+    }
+
+    @Test("A file written before schemes existed decodes to the default scheme")
+    func legacyFileHasDefaultScheme() throws {
+        let legacy = Data(#"{"userLayouts":[]}"#.utf8)
+        let library = try JSONDecoder().decode(PersistedLibrary.self, from: legacy)
+        #expect(library.hotkeyScheme == .default)
+    }
+
     private func roundTrip(_ library: PersistedLibrary) throws -> PersistedLibrary {
         let data = try JSONEncoder().encode(library)
         return try JSONDecoder().decode(PersistedLibrary.self, from: data)

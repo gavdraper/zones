@@ -25,6 +25,10 @@ final class HotkeyHintController: HotkeyHintObserver {
         }
     }
 
+    /// The active modifier preset, kept in step with the keyboard monitor so the
+    /// hint resolves the same chords the bindings do.
+    var scheme: HotkeyScheme = .default
+
     private var showTimer: Timer?
     /// The content a scheduled (not-yet-shown) hint will display, used to avoid
     /// restarting the timer when an unrelated modifier change resolves the same
@@ -48,7 +52,7 @@ final class HotkeyHintController: HotkeyHintObserver {
     func keyboardMonitor(_ monitor: KeyboardMonitor, heldModifiersDidChange modifiers: Modifiers) {
         guard isEnabled else { return }
 
-        guard let content = HotkeyHint.content(for: modifiers) else {
+        guard let content = HotkeyHint.content(for: modifiers, scheme: scheme) else {
             // Held modifiers no longer arm a chord family — drop the hint and
             // clear any post-chord suppression so the next chord shows again.
             cancelAndHide()
