@@ -11,6 +11,10 @@ final class SnapController: DragMonitorDelegate, KeyboardMonitorDelegate {
     /// The layout currently offered for snapping. Swappable from the menu bar.
     var layout: ZoneLayout
 
+    /// Spacing in points inset around every snapped window. Driven by the
+    /// library so menu changes take effect on the next snap.
+    var gap: CGFloat = 0
+
     private var targetScreen: NSScreen?
     private var targetZone: Zone?
     private var draggedWindow: FocusedWindow?
@@ -45,7 +49,7 @@ final class SnapController: DragMonitorDelegate, KeyboardMonitorDelegate {
               let window = draggedWindow else { return }
 
         let bounds = displayBoundsQuartz(for: screen)
-        let frame = ZoneGeometry.frame(for: zone, in: bounds)
+        let frame = ZoneGeometry.frame(for: zone, in: bounds, gap: gap)
         Log.snap.info("Snapping to zone \(zone.id) frame=\(frame.debugDescription, privacy: .public)")
         window.setFrame(frame)
     }
@@ -54,6 +58,22 @@ final class SnapController: DragMonitorDelegate, KeyboardMonitorDelegate {
 
     func keyboardMonitor(_ monitor: KeyboardMonitor, didRequestMoveIn direction: ZoneNavigator.Direction) {
         moveFocusedWindow(direction)
+    }
+
+    /// Snaps the focused window to a built-in screen region on its current
+    /// display. No layout is involved, so no overlay is shown.
+    func keyboardMonitor(_ monitor: KeyboardMonitor, didRequestRegion region: WindowRegion) {
+        guard let context = focusedWindowContext() else { return }
+
+        let frame: CGRect
+        if let normalized = region.normalizedFrame {
+            frame = ZoneGeometry.frame(forNormalized: normalized, in: context.bounds, gap: gap)
+        } else {
+            // `.center` keeps the window's current size and only recenters it.
+            frame = ZoneGeometry.centered(size: context.windowFrame.size, in: context.bounds, gap: gap)
+        }
+        Log.snap.info("Region snap \(String(describing: region), privacy: .public) frame=\(frame.debugDescription, privacy: .public)")
+        context.window.setFrame(frame)
     }
 
     /// Releasing the hotkey modifiers ends the gesture, so the zone overlay that
@@ -68,18 +88,25 @@ final class SnapController: DragMonitorDelegate, KeyboardMonitorDelegate {
     /// presses can walk the window across zones. A window that occupies no zone is
     /// pulled into the nearest one; a window already at the layout edge stays put.
     private func moveFocusedWindow(_ direction: ZoneNavigator.Direction) {
-        guard let window = FocusedWindow.current(), let windowFrame = window.frame() else { return }
+        guard let context = focusedWindowContext() else { return }
+        let bounds = context.bounds
 
-        let center = CGPoint(x: windowFrame.midX, y: windowFrame.midY)
-        guard let screen = screen(containing: center) else { return }
-        let bounds = displayBoundsQuartz(for: screen)
+        guard let zone = destinationZone(for: context.windowFrame, direction: direction, in: bounds) else { return }
 
-        guard let zone = destinationZone(for: windowFrame, direction: direction, in: bounds) else { return }
-
-        let frame = ZoneGeometry.frame(for: zone, in: bounds)
+        let frame = ZoneGeometry.frame(for: zone, in: bounds, gap: gap)
         Log.snap.info("Keyboard move \(String(describing: direction), privacy: .public) → zone \(zone.id)")
-        window.setFrame(frame)
-        overlay.show(layout: layout, on: screen, displayBoundsQuartz: bounds, activeZoneID: zone.id)
+        context.window.setFrame(frame)
+        overlay.show(layout: layout, on: context.screen, displayBoundsQuartz: bounds, activeZoneID: zone.id)
+    }
+
+    /// The focused window, its current frame, and the screen/bounds it sits on
+    /// (by its centre) — the common preamble for keyboard-driven placement.
+    private func focusedWindowContext()
+        -> (window: FocusedWindow, windowFrame: CGRect, screen: NSScreen, bounds: CGRect)? {
+        guard let window = FocusedWindow.current(), let windowFrame = window.frame() else { return nil }
+        let center = CGPoint(x: windowFrame.midX, y: windowFrame.midY)
+        guard let screen = screen(containing: center) else { return nil }
+        return (window, windowFrame, screen, displayBoundsQuartz(for: screen))
     }
 
     private func destinationZone(

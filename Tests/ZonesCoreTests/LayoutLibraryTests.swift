@@ -59,6 +59,30 @@ struct LayoutLibraryTests {
         #expect(store.saved.active == .user(id: layout.id))
     }
 
+    @Test("Loads the persisted gap")
+    func loadsPersistedGap() throws {
+        let store = InMemoryLayoutStore(PersistedLibrary(gap: 8))
+        let library = try LayoutLibrary(store: store, builtins: builtins)
+        #expect(library.gap == 8)
+    }
+
+    @Test("Setting the gap clamps, persists, and notifies")
+    func setGapPersistsAndNotifies() throws {
+        let store = InMemoryLayoutStore()
+        let library = try LayoutLibrary(store: store, builtins: builtins)
+
+        var notified = false
+        library.onChange = { notified = true }
+        library.setGap(-5)   // clamps to 0; equals current value, so no-op
+        #expect(library.gap == 0)
+        #expect(!notified)
+
+        library.setGap(16)
+        #expect(notified)
+        #expect(library.gap == 16)
+        #expect(store.saved.gap == 16)
+    }
+
     @Test("Removing the active layout falls back to the first built-in")
     func removeActiveFallsBack() throws {
         let layout = makeLayout()

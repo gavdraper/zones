@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var dragMonitor: DragMonitor?
     private var keyboardMonitor: KeyboardMonitor?
     private var snapController: SnapController?
+    private var hintController: HotkeyHintController?
     private var menuBar: MenuBarController?
     private var library: LayoutLibrary?
     private var editor: EditorWindowController?
@@ -21,10 +22,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let library = loadLibrary()
         let overlay = OverlayWindowController()
         let snapController = SnapController(layout: library.active, overlay: overlay)
+        snapController.gap = library.gap
         let dragMonitor = DragMonitor()
         dragMonitor.delegate = snapController
         let keyboardMonitor = KeyboardMonitor()
         keyboardMonitor.delegate = snapController
+
+        // The hint HUD observes the same keyboard monitor, independently of
+        // snapping, to show the available hotkeys while the modifiers are held.
+        let hintController = HotkeyHintController(
+            window: HotkeyHintWindowController(),
+            isEnabled: library.hintsEnabled
+        )
+        keyboardMonitor.hintObserver = hintController
 
         // Sparkle drives auto-updates; it reads its config from the bundle's
         // Info.plist, so it only does anything in a real packaged build.
@@ -41,8 +51,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // When the active layout changes (menu pick or editor save), swap the
         // snappable layout and refresh the menu's checkmarks.
-        library.onChange = { [weak snapController, weak menuBar] in
+        library.onChange = { [weak snapController, weak hintController, weak menuBar] in
             snapController?.layout = library.active
+            snapController?.gap = library.gap
+            hintController?.isEnabled = library.hintsEnabled
             menuBar?.refresh()
         }
 
@@ -52,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.snapController = snapController
         self.dragMonitor = dragMonitor
         self.keyboardMonitor = keyboardMonitor
+        self.hintController = hintController
         self.menuBar = menuBar
 
         startMonitoringWhenTrusted()

@@ -18,11 +18,17 @@ let outputPath = CommandLine.arguments.count > 1
 
 // MARK: - Palette
 
-// A blue -> indigo vertical gradient reads as "system utility" and stays legible
-// when scaled down to the 16pt Finder size.
-let topColor = NSColor(srgbRed: 0.32, green: 0.55, blue: 1.00, alpha: 1.0)
-let bottomColor = NSColor(srgbRed: 0.20, green: 0.33, blue: 0.86, alpha: 1.0)
-let zoneFill = NSColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.96)
+// A violet -> indigo vertical gradient — deliberately off the flat azure that
+// reads as "Trello" — while staying legible when scaled to the 16pt Finder size.
+let topColor = NSColor(srgbRed: 0.49, green: 0.36, blue: 1.00, alpha: 1.0)
+let bottomColor = NSColor(srgbRed: 0.29, green: 0.19, blue: 0.83, alpha: 1.0)
+// Zones render as translucent layout panels; one "active" zone is solid white to
+// signal the snap target. Together with the asymmetric tiling this reads as a
+// window-management grid, not a column of kanban cards.
+let activeZoneFill = NSColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.97)
+let idleZoneFill = NSColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.20)
+let idleZoneStroke = NSColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.55)
+let strokeWidth: CGFloat = 7
 
 // MARK: - Geometry
 
@@ -71,19 +77,32 @@ NSGradient(starting: topColor, ending: bottomColor)!
     .draw(in: squircle, angle: -90)
 NSGraphicsContext.current?.cgContext.resetClip()
 
-// Zone tiles: left column full height; right column split top/bottom.
-let columnWidth = (grid.width - gap) / 2
-let rowHeight = (grid.height - gap) / 2
+// Asymmetric tiling: a large primary zone (top-left), a full-height sidebar on
+// the right, and a wide bar along the bottom-left. This pinwheel layout is
+// unmistakably "screen carved into regions" rather than equal kanban columns.
+let sidebarWidth = grid.width * 0.30
+let bottomHeight = grid.height * 0.30
+let leftWidth = grid.width - sidebarWidth - gap
+let primaryHeight = grid.height - bottomHeight - gap
+let leftX = grid.minX
+let rightX = grid.maxX - sidebarWidth
 
-let leftTile = NSRect(x: grid.minX, y: grid.minY, width: columnWidth, height: grid.height)
-let rightX = grid.minX + columnWidth + gap
-let rightTop = NSRect(x: rightX, y: grid.minY + rowHeight + gap, width: columnWidth, height: rowHeight)
-let rightBottom = NSRect(x: rightX, y: grid.minY, width: columnWidth, height: rowHeight)
+let primaryTile = NSRect(x: leftX, y: grid.minY + bottomHeight + gap, width: leftWidth, height: primaryHeight)
+let sidebarTile = NSRect(x: rightX, y: grid.minY, width: sidebarWidth, height: grid.height)
+let bottomTile = NSRect(x: leftX, y: grid.minY, width: leftWidth, height: bottomHeight)
 
-zoneFill.set()
-for tile in [leftTile, rightTop, rightBottom] {
-    roundedPath(tile, radius: tileRadius).fill()
+// Idle zones first (translucent fill + stroke), then the solid active zone.
+idleZoneFill.set()
+idleZoneStroke.setStroke()
+for tile in [sidebarTile, bottomTile] {
+    let path = roundedPath(tile, radius: tileRadius)
+    path.fill()
+    path.lineWidth = strokeWidth
+    path.stroke()
 }
+
+activeZoneFill.set()
+roundedPath(primaryTile, radius: tileRadius).fill()
 
 NSGraphicsContext.restoreGraphicsState()
 

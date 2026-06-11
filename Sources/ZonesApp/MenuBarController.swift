@@ -50,11 +50,14 @@ final class MenuBarController: NSObject {
     private func buildMenu() {
         let menu = NSMenu()
         addSnappingToggle(to: menu)
+        addHintsToggle(to: menu)
         menu.addItem(.separator())
         addBuiltinLayouts(to: menu)
         addUserLayouts(to: menu)
         menu.addItem(.separator())
         addEditorEntries(to: menu)
+        menu.addItem(.separator())
+        addGapMenu(to: menu)
         menu.addItem(.separator())
         addHelp(to: menu)
         addUpdates(to: menu)
@@ -68,6 +71,13 @@ final class MenuBarController: NSObject {
         let toggle = NSMenuItem(title: "Snapping Enabled", action: #selector(toggleSnapping), keyEquivalent: "")
         toggle.target = self
         toggle.state = snappingEnabled ? .on : .off
+        menu.addItem(toggle)
+    }
+
+    private func addHintsToggle(to menu: NSMenu) {
+        let toggle = NSMenuItem(title: "Show Hotkey Hints", action: #selector(toggleHints), keyEquivalent: "")
+        toggle.target = self
+        toggle.state = library.hintsEnabled ? .on : .off
         menu.addItem(toggle)
     }
 
@@ -106,6 +116,28 @@ final class MenuBarController: NSObject {
         let new = NSMenuItem(title: "New Layout…", action: #selector(newLayout), keyEquivalent: "n")
         new.target = self
         menu.addItem(new)
+    }
+
+    /// Preset gap sizes (points) offered in the menu.
+    private static let gapPresets: [Double] = [0, 4, 8, 12, 16]
+
+    private func addGapMenu(to menu: NSMenu) {
+        let item = NSMenuItem(title: "Gaps", action: nil, keyEquivalent: "")
+        item.submenu = gapSubmenu()
+        menu.addItem(item)
+    }
+
+    private func gapSubmenu() -> NSMenu {
+        let submenu = NSMenu()
+        for preset in Self.gapPresets {
+            let title = preset == 0 ? "None" : "\(Int(preset)) pt"
+            let entry = NSMenuItem(title: title, action: #selector(setGap(_:)), keyEquivalent: "")
+            entry.target = self
+            entry.representedObject = preset
+            entry.state = library.gap == CGFloat(preset) ? .on : .off
+            submenu.addItem(entry)
+        }
+        return submenu
     }
 
     private func addHelp(to menu: NSMenu) {
@@ -166,6 +198,10 @@ final class MenuBarController: NSObject {
         }
     }
 
+    @objc private func toggleHints() {
+        library.setHintsEnabled(!library.hintsEnabled)
+    }
+
     @objc private func selectBuiltin(_ sender: NSMenuItem) {
         guard let name = sender.representedObject as? String else { return }
         library.selectBuiltin(named: name)
@@ -185,6 +221,11 @@ final class MenuBarController: NSObject {
         guard let id = sender.representedObject as? UUID, let layout = library.userLayout(id: id) else { return }
         guard confirmDeletion(of: layout.name) else { return }
         library.remove(id: id)
+    }
+
+    @objc private func setGap(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? Double else { return }
+        library.setGap(CGFloat(value))
     }
 
     @objc private func newLayout() {

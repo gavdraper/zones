@@ -33,6 +33,12 @@ final class HelpWindowController: NSObject, NSWindowDelegate {
             shortcut: "⌃ ⌥ + arrows"
         ),
         HelpTopic(
+            symbol: "rectangle.lefthalf.inset.filled",
+            title: "Snap to halves & quarters",
+            detail: "Place the focused window without a layout: arrows for halves, U/I/J/K for quarters, Return to maximize, C to center.",
+            shortcut: "⌃ ⌥ ⌘ + key"
+        ),
+        HelpTopic(
             symbol: "square.grid.2x2",
             title: "Switch layouts",
             detail: "Pick a built-in or your own layout from the Zones menu-bar icon.",
@@ -43,6 +49,12 @@ final class HelpWindowController: NSObject, NSWindowDelegate {
             title: "Create a layout",
             detail: "Choose “New Layout…” to split a grid into the zones you want, then save it.",
             shortcut: "⌘ N"
+        ),
+        HelpTopic(
+            symbol: "rectangle.split.2x1",
+            title: "Add gaps between windows",
+            detail: "Pick a spacing under “Gaps” in the menu to inset every snapped window. Applies to zones and size actions alike.",
+            shortcut: nil
         ),
         HelpTopic(
             symbol: "power",
@@ -57,7 +69,7 @@ final class HelpWindowController: NSObject, NSWindowDelegate {
     init(onClose: @escaping () -> Void) {
         self.onClose = onClose
         window = NSWindow(
-            contentRect: CGRect(x: 0, y: 0, width: 460, height: 520),
+            contentRect: CGRect(x: 0, y: 0, width: 460, height: 660),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

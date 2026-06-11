@@ -13,6 +13,13 @@ public final class LayoutLibrary {
     public private(set) var userLayouts: [UserLayout]
     public private(set) var selection: LayoutSelection
 
+    /// Spacing in points applied around every snapped window.
+    public private(set) var gap: CGFloat
+
+    /// Whether the on-screen hotkey hint is shown while the chord modifiers are
+    /// held.
+    public private(set) var hintsEnabled: Bool
+
     /// Called after any change to the layouts or the active selection.
     public var onChange: (() -> Void)?
 
@@ -25,6 +32,8 @@ public final class LayoutLibrary {
 
         let persisted = try store.load()
         self.userLayouts = persisted.userLayouts
+        self.gap = CGFloat(persisted.gap)
+        self.hintsEnabled = persisted.hintsEnabled
         self.selection = Self.resolve(persisted.active, builtins: builtins, userLayouts: persisted.userLayouts)
 
         // A dangling persisted selection (deleted user layout, renamed built-in)
@@ -55,6 +64,23 @@ public final class LayoutLibrary {
     public func selectUser(id: UUID) {
         guard userLayouts.contains(where: { $0.id == id }) else { return }
         selection = .user(id: id)
+        saveAndNotify()
+    }
+
+    /// Sets the window gap (clamped to non-negative), persists it, and notifies
+    /// observers so the snap controller picks up the new spacing.
+    public func setGap(_ points: CGFloat) {
+        let clamped = max(0, points)
+        guard clamped != gap else { return }
+        gap = clamped
+        saveAndNotify()
+    }
+
+    /// Toggles whether the on-screen hotkey hint is shown, persists it, and
+    /// notifies observers so the hint controller picks up the change.
+    public func setHintsEnabled(_ enabled: Bool) {
+        guard enabled != hintsEnabled else { return }
+        hintsEnabled = enabled
         saveAndNotify()
     }
 
@@ -105,7 +131,7 @@ public final class LayoutLibrary {
     }
 
     private func persist() throws {
-        try store.save(PersistedLibrary(userLayouts: userLayouts, active: selection))
+        try store.save(PersistedLibrary(userLayouts: userLayouts, active: selection, gap: Double(gap), hintsEnabled: hintsEnabled))
     }
 
     private static func resolve(

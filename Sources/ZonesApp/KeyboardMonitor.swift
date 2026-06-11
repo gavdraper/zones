@@ -1,47 +1,48 @@
 import AppKit
 import ZonesCore
 
-/// Receives keyboard zone-move gestures: a directional move while the hotkey
-/// modifiers are held, and the moment those modifiers are released so any zone
-/// overlay shown during the gesture can be torn down.
+/// Receives keyboard gestures: a directional zone move (while the move
+/// modifiers are held), a built-in size-region snap, and the moment the move
+/// modifiers are released so any zone overlay shown during the gesture can be
+/// torn down.
 @MainActor
 protocol KeyboardMonitorDelegate: AnyObject {
     func keyboardMonitor(_ monitor: KeyboardMonitor, didRequestMoveIn direction: ZoneNavigator.Direction)
+    func keyboardMonitor(_ monitor: KeyboardMonitor, didRequestRegion region: WindowRegion)
     func keyboardMonitorDidDisengage(_ monitor: KeyboardMonitor)
 }
 
-/// Listens for the zone-move hotkey (Control+Option+Arrow by default) via a
-/// session-level `CGEventTap` and reports the requested direction. Unlike
+/// Observes the modifier state independently of any chord, so a transient
+/// on-screen hint can track which keys are held and dismiss itself once a chord
+/// fires. Kept separate from ``KeyboardMonitorDelegate`` (which owns snapping)
+/// so the hint is a self-contained, optional concern.
+@MainActor
+protocol HotkeyHintObserver: AnyObject {
+    /// The set of held modifier keys changed (fired on every `flagsChanged`).
+    func keyboardMonitor(_ monitor: KeyboardMonitor, heldModifiersDidChange modifiers: Modifiers)
+    /// A bound chord was just consumed; any showing hint should be torn down.
+    func keyboardMonitorDidConsumeCommand(_ monitor: KeyboardMonitor)
+}
+
+/// Listens via a session-level `CGEventTap` for the two keyboard chord families
+/// resolved by ``KeyBinding`` — zone moves (`⌃⌥`+arrows) and built-in size
+/// regions (`⌃⌥⌘`+key) — and reports them to its delegate. Unlike
 /// ``DragMonitor`` this tap is active (not listen-only) so it can swallow a
-/// matched chord and stop the arrow key from also reaching the focused app.
+/// matched chord and stop the key from also reaching the focused app.
 @MainActor
 final class KeyboardMonitor: InputMonitor {
     weak var delegate: KeyboardMonitorDelegate?
-
-    /// Modifiers that must all be held for the chord to fire.
-    var requiredModifiers: CGEventFlags = [.maskControl, .maskAlternate]
+    weak var hintObserver: HotkeyHintObserver?
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
-    /// True once a move has shown the overlay, until the modifiers are released.
-    /// Gates the disengage callback so it only fires for gestures we started.
+    /// True once a move has shown the overlay, until the move modifiers are
+    /// released. Gates the disengage callback so it only fires for gestures we
+    /// started (a region snap never engages the overlay).
     private var engaged = false
 
     var isRunning: Bool { eventTap != nil }
-
-    /// Arrow key codes (`kVK_*`) mapped to a navigation direction.
-    private static let directions: [Int64: ZoneNavigator.Direction] = [
-        123: .left,   // kVK_LeftArrow
-        124: .right,  // kVK_RightArrow
-        125: .down,   // kVK_DownArrow
-        126: .up,     // kVK_UpArrow
-    ]
-
-    /// Modifier bits we test against so stray device-dependent flags don't break
-    /// the exact-match check.
-    private static let modifierMask: CGEventFlags =
-        [.maskControl, .maskAlternate, .maskCommand, .maskShift]
 
     /// Installs the event tap on the main run loop. Requires Accessibility
     /// permission; returns `false` if the tap could not be created.
@@ -87,7 +88,7 @@ final class KeyboardMonitor: InputMonitor {
         engaged = false
     }
 
-    /// Handles a key-down. Returns `true` when the chord matched and the event
+    /// Handles a key event. Returns `true` when a chord matched and the event
     /// should be swallowed.
     fileprivate func handle(type: CGEventType, keyCode: Int64, flags: CGEventFlags) -> Bool {
         // An active tap that the system disables stops swallowing the hotkey, so
@@ -98,24 +99,48 @@ final class KeyboardMonitor: InputMonitor {
             return false
         }
 
+        let modifiers = Self.modifiers(from: flags)
+
         // Modifier changes are never consumed; we only watch them to learn when
-        // the held hotkey is let go, so the overlay can be dismissed.
+        // the held move chord is let go, so the overlay can be dismissed.
         if type == .flagsChanged {
-            if engaged && !flags.isSuperset(of: requiredModifiers) {
+            if engaged && !modifiers.contains(KeyBinding.moveModifiers) {
                 engaged = false
                 delegate?.keyboardMonitorDidDisengage(self)
             }
+            hintObserver?.keyboardMonitor(self, heldModifiersDidChange: modifiers)
             return false
         }
 
         guard type == .keyDown,
-              flags.intersection(Self.modifierMask) == requiredModifiers,
-              let direction = Self.directions[keyCode] else { return false }
+              let command = KeyBinding.command(forKeyCode: keyCode, modifiers: modifiers) else { return false }
 
-        engaged = true
-        Log.app.debug("Zone-move hotkey: \(String(describing: direction), privacy: .public)")
-        delegate?.keyboardMonitor(self, didRequestMoveIn: direction)
+        switch command {
+        case let .move(direction):
+            engaged = true
+            Log.app.debug("Zone-move hotkey: \(String(describing: direction), privacy: .public)")
+            delegate?.keyboardMonitor(self, didRequestMoveIn: direction)
+        case let .region(region):
+            Log.app.debug("Size-region hotkey: \(String(describing: region), privacy: .public)")
+            delegate?.keyboardMonitor(self, didRequestRegion: region)
+        }
+        // The action takes over the screen (zone overlay, or the snap itself), so
+        // dismiss any hint that was showing the available keys.
+        hintObserver?.keyboardMonitorDidConsumeCommand(self)
         return true
+    }
+
+    /// Maps the macOS event flags to the framework-agnostic ``Modifiers`` set,
+    /// keeping only the four bits the bindings care about so stray
+    /// device-dependent flags (caps lock, numeric pad) can't break the exact
+    /// match `KeyBinding` performs.
+    private static func modifiers(from flags: CGEventFlags) -> Modifiers {
+        var modifiers: Modifiers = []
+        if flags.contains(.maskControl) { modifiers.insert(.control) }
+        if flags.contains(.maskAlternate) { modifiers.insert(.option) }
+        if flags.contains(.maskCommand) { modifiers.insert(.command) }
+        if flags.contains(.maskShift) { modifiers.insert(.shift) }
+        return modifiers
     }
 }
 
