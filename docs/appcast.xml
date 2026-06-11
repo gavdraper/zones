@@ -3,6 +3,15 @@
     <channel>
         <title>Zones</title>
         <item>
+            <title>0.3.4</title>
+            <pubDate>Thu, 11 Jun 2026 06:17:21 +0000</pubDate>
+            <link>https://github.com/gavdraper/zones</link>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>0.3.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/gavdraper/zones/releases/download/downloads/Zones-0.3.4.dmg" length="1562771" type="application/octet-stream" sparkle:edSignature="meK8in8Z+V/GBZBnsVDPNK1GvkkDX0681xOPZLr7z6o1Eaa9IpRDnJIHj7PmQFqHyBBAIaHiMvQhEEnW+Vf+Cw=="/>
+        </item>
+        <item>
             <title>0.3.2</title>
             <pubDate>Thu, 11 Jun 2026 05:43:59 +0000</pubDate>
             <link>https://github.com/gavdraper/zones</link>
@@ -19,15 +28,6 @@
             <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/gavdraper/zones/releases/download/downloads/Zones-0.3.0.dmg" length="1424587" type="application/octet-stream" sparkle:edSignature="9P8g6F6yMUwauRIrbgqFb8Xo89LOznD2ybX5aE8ewCdPzXQtJcdejjOqtCb1zh+skcsRFZyBxcLODw5Nb/+CDQ=="/>
-        </item>
-        <item>
-            <title>0.2.2</title>
-            <pubDate>Wed, 10 Jun 2026 07:14:43 +0100</pubDate>
-            <link>https://github.com/gavdraper/zones</link>
-            <sparkle:version>4</sparkle:version>
-            <sparkle:shortVersionString>0.2.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/gavdraper/zones/releases/download/downloads/Zones-0.2.2.dmg" length="1424602" type="application/octet-stream" sparkle:edSignature="aTUtcSkjKkctu8Ri2qCGKmQ8yD2FLNOWCm4Rw2l+NQe45uB5OU3wgDgDEECTlQwIi7SHoFbO6hxS9GRkASd4Bw=="/>
         </item>
     </channel>
 </rss>
